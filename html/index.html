@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QBCore HUD - Settings Menu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: transparent;
+            font-family: 'Orbitron', monospace;
+            color: white;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Settings Menu Container */
+        .settings-menu {
+            width: 600px;
+            height: 700px;
+            background: linear-gradient(145deg, #0a0a0a, #1a1a1a);
+            border: 3px solid transparent;
+            border-radius: 20px;
+            position: relative;
+            box-shadow: 
+                0 0 40px rgba(176, 38, 255, 0.5),
+                inset 0 0 30px rgba(0, 255, 255, 0.1);
+            animation: menuGlow 4s ease-in-out infinite alternate;
+            overflow: hidden;
+            display: none;
+        }
+
+        .settings-menu::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, #B026FF, #0ff, #B026FF, #0ff);
+            border-radius: 20px;
+            z-index: -1;
+            animation: borderShift 5s ease-in-out infinite;
+        }
+
+        @keyframes menuGlow {
+            0% { box-shadow: 0 0 40px rgba(176, 38, 255, 0.5), inset 0 0 30px rgba(0, 255, 255, 0.1); }
+            100% { box-shadow: 0 0 60px rgba(0, 255, 255, 0.7), inset 0 0 40px rgba(176, 38, 255, 0.2); }
+        }
+
+        @keyframes borderShift {
+            0%, 100% { background: linear-gradient(45deg, #B026FF, #0ff, #B026FF, #0ff); }
+            50% { background: linear-gradient(45deg, #0ff, #B026FF, #0ff, #B026FF); }
+        }
+
+        /* Header */
+        .menu-header {
+            padding: 25px 30px;
+            border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(90deg, rgba(176, 38, 255, 0.1), transparent, rgba(0, 255, 255, 0.1));
+            position: relative;
+        }
+
+        .menu-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #0ff, transparent);
+            animation: scanLine 3s linear infinite;
+        }
+
+        @keyframes scanLine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .menu-title {
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: linear-gradient(45deg, #B026FF, #0ff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(176, 38, 255, 0.8);
+        }
+
+        .close-btn {
+            background: transparent;
+            border: 2px solid #ff4444;
+            color: #ff4444;
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            background: #ff4444;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
+            transform: scale(1.1);
+        }
+
+        /* Menu Content */
+        .menu-content {
+            padding: 25px 30px;
+            height: 520px;
+            overflow-y: auto;
+        }
+
+        /* Settings Sections */
+        .settings-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(176, 38, 255, 0.2);
+            border-radius: 15px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .settings-section:hover {
+            border-color: rgba(176, 38, 255, 0.5);
+            box-shadow: 0 0 15px rgba(176, 38, 255, 0.2);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px #0ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            font-size: 20px;
+            color: #B026FF;
+        }
+
+        /* Setting Items */
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            color: #fff;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .setting-description {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 3px;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .toggle-switch.active {
+            background: linear-gradient(45deg, #B026FF, #0ff);
+            border-color: #0ff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(28px);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        /* Dropdown Select */
+        .custom-select {
+            position: relative;
+            min-width: 150px;
+        }
+
+        .select-button {
+            background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+            border: 2px solid #B026FF;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .select-button:hover {
+            border-color: #0ff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+            border: 2px solid #B026FF;
+            border-radius: 8px;
+            margin-top: 5px;
+            z-index: 1000;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .select-dropdown.open {
+            display: block;
+            animation: dropdownSlide 0.3s ease;
+        }
+
+        @keyframes dropdownSlide {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .select-option {
+            padding: 10px 15px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .select-option:last-child {
+            border-bottom: none;
+        }
+
+        .select-option:hover {
+            background: rgba(176, 38, 255, 0.2);
+            color: #0ff;
+        }
+
+        .select-option.selected {
+            background: linear-gradient(45deg, #B026FF, #0ff);
+            color: white;
+        }
+
+        /* Slider */
+        .range-slider {
+            position: relative;
+            width: 150px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .range-input {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: transparent;
+            outline: none;
+            position: relative;
+            z-index: 2;
+        }
+
+        .range-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(45deg, #B026FF, #0ff);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(176, 38, 255, 0.6);
+        }
+
+        .range-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(45deg, #B026FF, #0ff);
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .range-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #0ff;
+            font-weight: 700;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            padding: 20px 0;
+            border-top: 2px solid rgba(176, 38, 255, 0.3);
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+            border: 2px solid #B026FF;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .action-btn:hover {
+            border-color: #0ff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(45deg, #B026FF, #0ff);
+            border-color: transparent;
+        }
+
+        .action-btn.primary:hover {
+            box-shadow: 0 0 25px rgba(176, 38, 255, 0.6);
+            transform: translateY(-3px) scale(1.05);
+        }
+
+        /* Scrollbar Styling */
+        .menu-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .menu-content::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        .menu-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #B026FF, #0ff);
+            border-radius: 4px;
+        }
+
+        .menu-content::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #0ff, #B026FF);
+        }
+
+        /* Hidden State */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 700px) {
+            .settings-menu {
+                width: 90vw;
+                height: 80vh;
+            }
+            
+            .menu-header {
+                padding: 20px 25px;
+            }
+            
+            .menu-content {
+                padding: 20px 25px;
+                height: calc(80vh - 180px);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .setting-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-menu" id="settingsMenu">
+        <!-- Header -->
+        <div class="menu-header">
+            <div class="menu-title">
+                <i class="fas fa-cogs"></i> HUD Settings
+            </div>
+            <button class="close-btn" id="closeBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Menu Content -->
+        <div class="menu-content">
+            <!-- HUD Modules Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-th-large"></i>
+                    HUD Modules
+                </div>
+                
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Health Display</div>
+                        <div class="setting-description">Show health, armor, hunger, thirst bars</div>
+                    </div>
+                    <div class="toggle-switch active" data-setting="health">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Status Icons</div>
+                        <div class="setting-description">Voice, radio, armed status indicators</div>
+                    </div>
+                    <div class="toggle-switch active" data-setting="status">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Time & Weather</div>
+                        <div class="setting-description">Current time and weather display</div>
+                    </div>
+                    <div class="toggle-switch active" data-setting="time">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Minimap Interface</div>
+                        <div class="setting-description">Location and status overview</div>
+                    </div>
+                    <div class="toggle-switch active" data-setting="minimap">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">GPS Navigation</div>
+                        <div class="setting-description">GPS HUD with voice indicators</div>
+                    </div>
+                    <div class="toggle-switch active" data-setting="gps">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appearance Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-palette"></i>
+                    Appearance
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Theme</div>
+                        <div class="setting-description">Choose HUD color scheme</div>
+                    </div>
+                    <div class="custom-select">
+                        <div class="select-button" id="themeSelect">
+                            <span>Neon Magenta</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="select-dropdown" id="themeDropdown">
+                            <div class="select-option selected" data-value="neon-magenta">Neon Magenta</div>
+                            <div class="select-option" data-value="neon-cyan">Neon Cyan</div>
+                            <div class="select-option" data-value="synthwave">Synthwave</div>
+                            <div class="select-option" data-value="matrix">Matrix Green</div>
+                            <div class="select-option" data-value="classic">Classic Blue</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">HUD Scale</div>
+                        <div class="setting-description">Overall size of HUD elements</div>
+                    </div>
+                    <div class="range-slider">
+                        <input type="range" class="range-input" min="50" max="150" value="100" id="scaleSlider">
+                        <div class="range-fill" style="width: 50%"></div>
+                        <div class="range-value">100%</div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Opacity</div>
+                        <div class="setting-description">Transparency of HUD elements</div>
+                    </div>
+                    <div class="range-slider">
+                        <input type="range" class="range-input" min="30" max="100" value="90" id="opacitySlider">
+                        <div class="range-fill" style="width: 85%"></div>
+                        <div class="range-value">90%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Position Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-arrows-alt"></i>
+                    Position
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">GPS HUD Position</div>
+                        <div class="setting-description">Where to display GPS navigation</div>
+                    </div>
+                    <div class="custom-select">
+                        <div class="select-button" id="gpsPositionSelect">
+                            <span>Bottom Left</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="select-dropdown" id="gpsPositionDropdown">
+                            <div class="select-option selected" data-value="bottom-left">Bottom Left</div>
+                            <div class="select-option" data-value="bottom-right">Bottom Right</div>
+                            <div class="select-option" data-value="top-left">Top Left</div>
+                            <div class="select-option" data-value="top-right">Top Right</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Minimap Position</div>
+                        <div class="setting-description">Where to display minimap interface</div>
+                    </div>
+                    <div class="custom-select">
+                        <div class="select-button" id="minimapPositionSelect">
+                            <span>Bottom Left</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="select-dropdown" id="minimapPositionDropdown">
+                            <div class="select-option selected" data-value="bottom-left">Bottom Left</div>
+                            <div class="select-option" data-value="bottom-right">Bottom Right</div>
+                            <div class="select-option" data-value="top-left">Top Left</div>
+                            <div class="select-option" data-value="top-right">Top Right</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Performance
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Performance Mode</div>
+                        <div class="setting-description">Reduce animations for better FPS</div>
+                    </div>
+                    <div class="toggle-switch" data-setting="performance">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Reduced Effects</div>
+                        <div class="setting-description">Disable glow and scan effects</div>
+                    </div>
+                    <div class="toggle-switch" data-setting="reduced-effects">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="action-btn" id="resetBtn">
+                <i class="fas fa-undo"></i> Reset to Default
+            </button>
+            <button class="action-btn primary" id="saveBtn">
+                <i class="fas fa-save"></i> Save Settings
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // HUD Settings Controller
+        class HUDSettingsController {
+            constructor() {
+                this.settings = {
+                    modules: {
+                        health: true,
+                        status: true,
+                        time: true,
+                        minimap: true,
+                        gps: true
+                    },
+                    theme: 'neon-magenta',
+                    scale: 100,
+                    opacity: 90,
+                    positions: {
+                        gps: 'bottom-left',
+                        minimap: 'bottom-left'
+                    },
+                    performance: {
+                        performanceMode: false,
+                        reducedEffects: false
+                    }
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.loadSettings();
+                this.updateUI();
+            }
+            
+            setupEventListeners() {
+                // Close button
+                document.getElementById('closeBtn').addEventListener('click', () => {
+                    this.closeMenu();
+                });
+                
+                // Toggle switches
+                document.querySelectorAll('.toggle-switch').forEach(toggle => {
+                    toggle.addEventListener('click', () => {
+                        this.toggleSetting(toggle);
+                    });
+                });
+                
+                // Custom selects
+                this.setupCustomSelects();
+                
+                // Range sliders
+                this.setupRangeSliders();
+                
+                // Action buttons
+                document.getElementById('saveBtn').addEventListener('click', () => {
+                    this.saveSettings();
+                });
+                
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.resetSettings();
+                });
+                
+                // FiveM events
+                window.addEventListener('message', (event) => {
+                    this.handleMessage(event.data);
+                });
+                
+                // Close on ESC
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        this.closeMenu();
+                    }
+                });
+            }
+            
+            setupCustomSelects() {
+                document.querySelectorAll('.custom-select').forEach(select => {
+                    const button = select.querySelector('.select-button');
+                    const dropdown = select.querySelector('.select-dropdown');
+                    
+                    button.addEventListener('click', () => {
+                        dropdown.classList.toggle('open');
+                    });
+                    
+                    dropdown.querySelectorAll('.select-option').forEach(option => {
+                        option.addEventListener('click', () => {
+                            this.selectOption(select, option);
+                        });
+                    });
+                });
+                
+                // Close dropdowns when clicking outside
+                document.addEventListener('click', (event) => {
+                    if (!event.target.closest('.custom-select')) {
+                        document.querySelectorAll('.select-dropdown').forEach(dropdown => {
+                            dropdown.classList.remove('open');
+                        });
+                    }
+                });
+            }
+            
+            setupRangeSliders() {
+                document.querySelectorAll('.range-slider').forEach(slider => {
+                    const input = slider.querySelector('.range-input');
+                    const fill = slider.querySelector('.range-fill');
+                    const value = slider.querySelector('.range-value');
+                    
+                    input.addEventListener('input', () => {
+                        const percent = ((input.value - input.min) / (input.max - input.min)) * 100;
+                        fill.style.width = percent + '%';
+                        value.textContent = input.value + '%';
+                        value.style.left = percent + '%';
+                        
+                        // Update settings
+                        if (input.id === 'scaleSlider') {
+                            this.settings.scale = parseInt(input.value);
+                        } else if (input.id === 'opacitySlider') {
+                            this.settings.opacity = parseInt(input.value);
+                        }
+                    });
+                });
+            }
+            
+            toggleSetting(toggle) {
+                const setting = toggle.dataset.setting;
+                const isActive = toggle.classList.contains('active');
+                
+                if (isActive) {
+                    toggle.classList.remove('active');
+                } else {
+                    toggle.classList.add('active');
+                }
+                
+                // Update settings object
+                if (this.settings.modules.hasOwnProperty(setting)) {
+                    this.settings.modules[setting] = !isActive;
+                } else if (this.settings.performance.hasOwnProperty(setting)) {
+                    this.settings.performance[setting] = !isActive;
+                } else {
+                    this.settings.performance[setting.replace('-', '')] = !isActive;
+                }
+            }
+            
+            selectOption(select, option) {
+                const selectId = select.querySelector('.select-button').id;
+                const value = option.dataset.value;
+                const text = option.textContent;
+                
+                // Update UI
+                select.querySelector('.select-button span').textContent = text;
+                select.querySelectorAll('.select-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                option.classList.add('selected');
+                select.querySelector('.select-dropdown').classList.remove('open');
+                
+                // Update settings
+                if (selectId === 'themeSelect') {
+                    this.settings.theme = value;
+                } else if (selectId === 'gpsPositionSelect') {
+                    this.settings.positions.gps = value;
+                } else if (selectId === 'minimapPositionSelect') {
+                    this.settings.positions.minimap = value;
+                }
+            }
+            
+            handleMessage(data) {
+                switch(data.action) {
+                    case 'openSettings':
+                        this.openMenu();
+                        break;
+                    case 'closeSettings':
+                        this.closeMenu();
+                        break;
+                    case 'loadSettings':
+                        this.settings = { ...this.settings, ...data.settings };
+                        this.updateUI();
+                        break;
+                }
+            }
+            
+            openMenu() {
+                const menu = document.getElementById('settingsMenu');
+                menu.style.display = 'block';
+                document.body.style.cursor = 'auto';
+            }
+            
+            closeMenu() {
+                const menu = document.getElementById('settingsMenu');
+                menu.style.display = 'none';
+                this.postToFiveM({ action: 'closeSettings' });
+            }
+            
+            saveSettings() {
+                this.postToFiveM({ 
+                    action: 'saveSettings', 
+                    settings: this.settings 
+                });
+                
+                // Show save confirmation
+                const saveBtn = document.getElementById('saveBtn');
+                const originalText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
+                saveBtn.style.background = 'linear-gradient(45deg, #00ff41, #66bb6a)';
+                
+                setTimeout(() => {
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.style.background = 'linear-gradient(45deg, #B026FF, #0ff)';
+                }, 2000);
+            }
+            
+            resetSettings() {
+                // Reset to defaults
+                this.settings = {
+                    modules: {
+                        health: true,
+                        status: true,
+                        time: true,
+                        minimap: true,
+                        gps: true
+                    },
+                    theme: 'neon-magenta',
+                    scale: 100,
+                    opacity: 90,
+                    positions: {
+                        gps: 'bottom-left',
+                        minimap: 'bottom-left'
+                    },
+                    performance: {
+                        performanceMode: false,
+                        reducedEffects: false
+                    }
+                };
+                
+                this.updateUI();
+                this.postToFiveM({ action: 'resetSettings' });
+            }
+            
+            updateUI() {
+                // Update toggles
+                Object.entries(this.settings.modules).forEach(([key, value]) => {
+                    const toggle = document.querySelector(`[data-setting="${key}"]`);
+                    if (toggle) {
+                        toggle.classList.toggle('active', value);
+                    }
+                });
+                
+                Object.entries(this.settings.performance).forEach(([key, value]) => {
+                    const toggle = document.querySelector(`[data-setting="${key}"], [data-setting="${key.replace(/([A-Z])/g, '-$1').toLowerCase()}"]`);
+                    if (toggle) {
+                        toggle.classList.toggle('active', value);
+                    }
+                });
+                
+                // Update selects
+                this.updateSelect('themeSelect', this.settings.theme);
+                this.updateSelect('gpsPositionSelect', this.settings.positions.gps);
+                this.updateSelect('minimapPositionSelect', this.settings.positions.minimap);
+                
+                // Update sliders
+                this.updateSlider('scaleSlider', this.settings.scale);
+                this.updateSlider('opacitySlider', this.settings.opacity);
+            }
+            
+            updateSelect(selectId, value) {
+                const select = document.getElementById(selectId).closest('.custom-select');
+                const option = select.querySelector(`[data-value="${value}"]`);
+                if (option) {
+                    this.selectOption(select, option);
+                }
+            }
+            
+            updateSlider(sliderId, value) {
+                const slider = document.getElementById(sliderId);
+                if (slider) {
+                    slider.value = value;
+                    slider.dispatchEvent(new Event('input'));
+                }
+            }
+            
+            loadSettings() {
+                this.postToFiveM({ action: 'getSettings' });
+            }
+            
+            postToFiveM(data) {
+                if (window.fetch) {
+                    fetch(`https://${this.getResourceName()}/hudSettings`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    }).catch(() => {}); // Ignore fetch errors in NUI
+                }
+            }
+            
+            getResourceName() {
+                return window.location.hostname === 'nui-game-internal' ? 'qb-hud' : 'qb-hud';
+            }
+        }
+
+        // Initialize Settings Controller
+        const hudSettings = new HUDSettingsController();
+
+        // Export for external access
+        window.hudSettingsController = hudSettings;
+    </script>
+</body>
+</html>

@@ -1,0 +1,632 @@
+<!-- ================================================================
+     QBCore HUD - Status Module Template
+     Version: 3.0.0
+     Description: Voice, Radio, Armed, Parachute, Harness, Cruise, Dev indicators
+     ================================================================ -->
+
+<div class="status-module module" id="module-status" data-position="bottom-center">
+    <div class="module-content">
+        <div class="scan-line"></div>
+        
+        <!-- Status Indicators Grid -->
+        <div class="indicator-grid">
+            
+            <!-- Voice Indicator -->
+            <div class="status-indicator voice-indicator" id="voice-indicator">
+                <div class="radio-channel" id="radio-channel">CH1</div>
+                <div class="indicator-icon">
+                    <i class="fas fa-microphone" id="voice-icon"></i>
+                </div>
+                <div class="indicator-level" id="voice-level">2</div>
+                
+                <!-- Voice Level Bars -->
+                <div class="voice-level-bars" id="voice-level-bars">
+                    <div class="voice-bar"></div>
+                    <div class="voice-bar active"></div>
+                    <div class="voice-bar active"></div>
+                    <div class="voice-bar"></div>
+                    <div class="voice-bar"></div>
+                </div>
+            </div>
+
+            <!-- Armed Indicator -->
+            <div class="status-indicator armed-indicator hidden" id="armed-indicator">
+                <div class="indicator-icon">
+                    <i class="fas fa-crosshairs"></i>
+                </div>
+                <div class="indicator-level">ARMED</div>
+            </div>
+
+            <!-- Parachute Indicator -->
+            <div class="status-indicator parachute-indicator hidden" id="parachute-indicator">
+                <div class="indicator-icon">
+                    <i class="fas fa-parachute-box"></i>
+                </div>
+                <div class="indicator-level" id="parachute-level">1</div>
+            </div>
+
+            <!-- Harness Indicator -->
+            <div class="status-indicator harness-indicator hidden" id="harness-indicator">
+                <div class="indicator-icon">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <div class="indicator-level" id="harness-level">100</div>
+            </div>
+
+            <!-- Cruise Control Indicator -->
+            <div class="status-indicator cruise-indicator hidden" id="cruise-indicator">
+                <div class="indicator-icon">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <div class="indicator-level" id="cruise-speed">120</div>
+            </div>
+
+            <!-- Developer Mode Indicator -->
+            <div class="status-indicator dev-indicator hidden" id="dev-indicator">
+                <div class="indicator-icon">
+                    <i class="fas fa-code"></i>
+                </div>
+                <div class="indicator-level">DEV</div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Time Display Module (separate component) -->
+<div class="time-module module" id="module-time" data-position="top-right">
+    <div class="module-content">
+        
+        <div class="time-display">
+            <div class="time-main" id="time-display">00:00</div>
+            <div class="date-display" id="date-display">01. January 2025</div>
+            <div class="weather-display hidden" id="weather-display">
+                <i class="fas fa-sun" id="weather-icon"></i>
+                <span id="weather-text">Clear 20°C</span>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Location Display Module (separate component) -->
+<div class="location-module module" id="module-location" data-position="top-center">
+    <div class="module-content">
+        
+        <div class="location-display">
+            <div class="location-name" id="location-name">VINEWOOD HILLS</div>
+            <div class="street-names" id="street-names">
+                <span id="street-main">Elgin Avenue</span>
+                <span class="street-separator">/</span>
+                <span id="street-cross">Power Street</span>
+            </div>
+            <div class="direction-info" id="direction-info">
+                <i class="fas fa-compass direction-icon" id="direction-icon"></i>
+                <span class="direction-text" id="direction-text">N 45°</span>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<style>
+/* ================================================================
+   STATUS MODULE SPECIFIC STYLES
+   ================================================================ */
+
+.status-module .module-content {
+    background: linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    padding: 8px 12px;
+    backdrop-filter: var(--backdrop-blur);
+    min-width: 200px;
+    position: relative;
+    overflow: hidden;
+}
+
+.status-module:hover .module-content {
+    border-color: var(--secondary);
+    box-shadow: var(--glow-secondary);
+    transform: translateY(var(--hover-translate)) scale(var(--hover-scale));
+}
+
+/* Status Indicators Grid */
+.indicator-grid {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Individual Status Indicator */
+.status-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid transparent;
+    border-radius: var(--border-radius);
+    padding: 6px;
+    transition: all var(--transition-speed) ease;
+    position: relative;
+    cursor: pointer;
+}
+
+.status-indicator:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(176, 38, 255, 0.3);
+    transform: translateY(var(--hover-translate)) scale(var(--hover-scale));
+}
+
+.status-indicator.hidden {
+    opacity: 0;
+    transform: scale(0);
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.status-indicator.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Indicator Icon */
+.indicator-icon {
+    font-size: 16px;
+    margin-bottom: 3px;
+    color: var(--primary);
+    text-shadow: 0 0 8px currentColor;
+    transition: all var(--transition-speed) ease;
+}
+
+.status-indicator:hover .indicator-icon {
+    transform: scale(1.1);
+    text-shadow: 0 0 12px currentColor;
+}
+
+/* Indicator Level/Text */
+.indicator-level {
+    font-size: 9px;
+    font-weight: bold;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 5px var(--primary);
+    text-align: center;
+}
+
+/* ================================================================
+   VOICE INDICATOR SPECIFIC STYLES
+   ================================================================ */
+
+.voice-indicator {
+    position: relative;
+    min-width: 50px;
+}
+
+.voice-indicator .indicator-icon {
+    color: var(--voice-idle);
+    font-size: 18px;
+}
+
+/* Voice States */
+.voice-indicator.talking .indicator-icon {
+    color: var(--voice-talking);
+    animation: voiceTalking 0.8s ease-in-out infinite;
+}
+
+.voice-indicator.radio-active .indicator-icon {
+    color: var(--voice-radio);
+    animation: radioActive 1.5s ease-in-out infinite;
+}
+
+.voice-indicator.muted .indicator-icon {
+    color: var(--voice-muted);
+    opacity: 0.6;
+}
+
+/* Radio Channel Display */
+.radio-channel {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 8px;
+    color: var(--voice-radio);
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 1px 3px;
+    opacity: 0;
+    transition: opacity var(--transition-speed) ease;
+    text-shadow: 0 0 4px currentColor;
+}
+
+.voice-indicator.radio-active .radio-channel {
+    opacity: 1;
+}
+
+/* Voice Level Bars */
+.voice-level-bars {
+    display: flex;
+    align-items: end;
+    gap: 1px;
+    height: 10px;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.voice-bar {
+    width: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: all var(--transition-speed) ease;
+    opacity: 0.3;
+}
+
+.voice-bar.active {
+    opacity: 1;
+}
+
+.voice-bar:nth-child(1) { height: 3px; }
+.voice-bar:nth-child(2) { height: 6px; }
+.voice-bar:nth-child(3) { height: 10px; }
+.voice-bar:nth-child(4) { height: 6px; }
+.voice-bar:nth-child(5) { height: 3px; }
+
+.voice-indicator.talking .voice-bar.active {
+    animation: voiceWave 0.6s ease-in-out infinite;
+}
+
+.voice-bar:nth-child(1) { animation-delay: 0s; }
+.voice-bar:nth-child(2) { animation-delay: 0.1s; }
+.voice-bar:nth-child(3) { animation-delay: 0.2s; }
+.voice-bar:nth-child(4) { animation-delay: 0.3s; }
+.voice-bar:nth-child(5) { animation-delay: 0.4s; }
+
+/* ================================================================
+   SPECIFIC INDICATOR STYLES
+   ================================================================ */
+
+/* Armed Indicator */
+.armed-indicator .indicator-icon {
+    color: #ff4444;
+    animation: pulse 2s infinite;
+}
+
+.armed-indicator .indicator-level {
+    color: #ff4444;
+    font-size: 8px;
+}
+
+/* Parachute Indicator */
+.parachute-indicator .indicator-icon {
+    color: #29b6f6;
+}
+
+.parachute-indicator .indicator-level {
+    color: #29b6f6;
+}
+
+/* Harness Indicator */
+.harness-indicator .indicator-icon {
+    color: #ffb74d;
+}
+
+.harness-indicator .indicator-level {
+    color: #ffb74d;
+}
+
+.harness-indicator.warning .indicator-icon,
+.harness-indicator.warning .indicator-level {
+    color: #ff9500;
+    animation: pulse 1.5s infinite;
+}
+
+/* Cruise Control Indicator */
+.cruise-indicator .indicator-icon {
+    color: #66bb6a;
+}
+
+.cruise-indicator .indicator-level {
+    color: #66bb6a;
+    font-size: 8px;
+}
+
+/* Developer Mode Indicator */
+.dev-indicator .indicator-icon {
+    color: #ff6600;
+    animation: devMode 3s linear infinite;
+}
+
+.dev-indicator .indicator-level {
+    color: #ff6600;
+    font-size: 7px;
+}
+
+/* ================================================================
+   TIME MODULE SPECIFIC STYLES
+   ================================================================ */
+
+.time-module .module-content {
+    background: linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    padding: 12px 16px;
+    backdrop-filter: var(--backdrop-blur);
+    text-align: right;
+    min-width: 140px;
+}
+
+.time-module:hover .module-content {
+    border-color: var(--accent);
+    box-shadow: var(--glow-accent);
+}
+
+.time-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.time-main {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: var(--primary);
+    text-shadow: 0 0 15px var(--primary);
+    line-height: 1;
+    font-family: var(--font-primary);
+}
+
+.time-main.time-glow {
+    animation: timeGlow 1s ease;
+}
+
+.date-display {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: var(--font-secondary);
+}
+
+.weather-display {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--secondary);
+    margin-top: 4px;
+}
+
+.weather-display i {
+    font-size: 12px;
+    text-shadow: 0 0 6px currentColor;
+}
+
+/* Weather-specific styling */
+.weather-display.weather-sunny { color: #FFD700; }
+.weather-display.weather-rainy { color: #29b6f6; }
+.weather-display.weather-stormy { color: #ff4444; }
+.weather-display.weather-snowy { color: #e0e0e0; }
+.weather-display.weather-foggy { color: #999; }
+.weather-display.weather-cloudy { color: #666; }
+
+/* ================================================================
+   LOCATION MODULE SPECIFIC STYLES
+   ================================================================ */
+
+.location-module .module-content {
+    background: linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    padding: 8px 12px;
+    backdrop-filter: var(--backdrop-blur);
+    text-align: center;
+    min-width: 200px;
+}
+
+.location-module:hover .module-content {
+    border-color: var(--secondary);
+    box-shadow: var(--glow-secondary);
+}
+
+.location-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.location-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    text-shadow: 0 0 8px var(--primary);
+    font-family: var(--font-primary);
+}
+
+.street-names {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: var(--font-secondary);
+}
+
+.street-separator {
+    margin: 0 4px;
+    color: var(--secondary);
+}
+
+.direction-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--secondary);
+    margin-top: 2px;
+}
+
+.direction-icon {
+    font-size: 10px;
+    text-shadow: 0 0 6px currentColor;
+    animation: compassSpin 8s linear infinite;
+}
+
+.direction-text {
+    font-family: var(--font-primary);
+    font-weight: bold;
+    text-shadow: 0 0 4px currentColor;
+}
+
+/* ================================================================
+   ANIMATIONS
+   ================================================================ */
+
+@keyframes voiceTalking {
+    0%, 100% { 
+        transform: scale(1);
+        filter: drop-shadow(0 0 6px currentColor);
+    }
+    50% { 
+        transform: scale(1.15);
+        filter: drop-shadow(0 0 15px currentColor);
+    }
+}
+
+@keyframes radioActive {
+    0%, 100% { 
+        box-shadow: 0 0 8px currentColor;
+    }
+    50% { 
+        box-shadow: 0 0 20px currentColor;
+    }
+}
+
+@keyframes voiceWave {
+    0%, 100% { transform: scaleY(1); }
+    25% { transform: scaleY(1.4); }
+    50% { transform: scaleY(0.8); }
+    75% { transform: scaleY(1.2); }
+}
+
+@keyframes devMode {
+    0% { color: #ff6600; }
+    25% { color: #00ff66; }
+    50% { color: #6600ff; }
+    75% { color: #ff0066; }
+    100% { color: #ff6600; }
+}
+
+@keyframes timeGlow {
+    0%, 100% { 
+        text-shadow: 0 0 15px var(--primary);
+    }
+    50% { 
+        text-shadow: 0 0 25px var(--primary), 0 0 35px var(--primary);
+    }
+}
+
+@keyframes compassSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ================================================================
+   RESPONSIVE DESIGN
+   ================================================================ */
+
+@media screen and (max-width: 767px) {
+    .status-module .module-content {
+        padding: 6px 8px;
+        min-width: 160px;
+    }
+    
+    .indicator-grid {
+        gap: 6px;
+    }
+    
+    .status-indicator {
+        min-width: 36px;
+        min-height: 36px;
+        padding: 4px;
+    }
+    
+    .indicator-icon {
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .indicator-level {
+        font-size: 8px;
+    }
+    
+    .voice-level-bars {
+        height: 8px;
+    }
+    
+    .voice-bar {
+        width: 1.5px;
+    }
+    
+    .time-module .module-content {
+        padding: 8px 12px;
+        min-width: 120px;
+    }
+    
+    .time-main {
+        font-size: 20px;
+        letter-spacing: 1.5px;
+    }
+    
+    .date-display {
+        font-size: 9px;
+    }
+    
+    .location-module .module-content {
+        padding: 6px 10px;
+        min-width: 160px;
+    }
+    
+    .location-name {
+        font-size: 12px;
+        letter-spacing: 1px;
+    }
+    
+    .street-names {
+        font-size: 9px;
+    }
+}
+
+/* ================================================================
+   PERFORMANCE MODE
+   ================================================================ */
+
+.performance-mode .voice-indicator.talking .indicator-icon,
+.performance-mode .voice-indicator.radio-active .indicator-icon,
+.performance-mode .armed-indicator .indicator-icon,
+.performance-mode .dev-indicator .indicator-icon,
+.performance-mode .direction-icon,
+.performance-mode .voice-bar.active,
+.performance-mode .harness-indicator.warning .indicator-icon,
+.performance-mode .harness-indicator.warning .indicator-level {
+    animation: none;
+}
+
+.performance-mode .indicator-icon,
+.performance-mode .indicator-level,
+.performance-mode .time-main,
+.performance-mode .location-name {
+    text-shadow: 0 0 3px currentColor;
+}
+</style>

@@ -1,0 +1,486 @@
+/* ================================================================
+   QBCore HUD - Base Layout System
+   Version: 3.0.0
+   Description: Foundation layout, positioning, and responsive grid
+   ================================================================ */
+
+/* ================================================================
+   CSS RESET & BASE
+   ================================================================ */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: 'Orbitron', sans-serif;
+    background: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+body {
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text-primary);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ================================================================
+   MAIN HUD CONTAINER
+   ================================================================ */
+
+#hud-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+#hud-container * {
+    pointer-events: auto;
+}
+
+/* ================================================================
+   MODULE POSITIONING SYSTEM
+   ================================================================ */
+
+.module {
+    position: absolute;
+    transition: all var(--transition-speed) ease;
+    z-index: 1001;
+}
+
+/* Top Positions */
+.module[data-position="top-left"] {
+    top: 20px;
+    left: 20px;
+}
+
+.module[data-position="top-center"] {
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.module[data-position="top-right"] {
+    top: 20px;
+    right: 20px;
+}
+
+.module[data-position="top-right-secondary"] {
+    top: 80px;
+    right: 20px;
+}
+
+/* Middle Positions */
+.module[data-position="middle-left"] {
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+}
+
+.module[data-position="middle-center"] {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.module[data-position="middle-right"] {
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+}
+
+/* Bottom Positions */
+.module[data-position="bottom-left"] {
+    bottom: 20px;
+    left: 20px;
+}
+
+.module[data-position="bottom-center"] {
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.module[data-position="bottom-right"] {
+    bottom: 20px;
+    right: 20px;
+}
+
+.module[data-position="bottom-right-secondary"] {
+    bottom: 80px;
+    right: 20px;
+}
+
+/* ================================================================
+   MODULE CONTENT CONTAINERS
+   ================================================================ */
+
+.module-content {
+    background: linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    padding: var(--padding-thin) 8px;
+    backdrop-filter: var(--backdrop-blur);
+    transition: all var(--transition-speed) ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.module-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+    pointer-events: none;
+}
+
+.module:hover .module-content {
+    border-color: var(--primary);
+    box-shadow: var(--glow-primary);
+    transform: translateY(var(--hover-translate)) scale(var(--hover-scale));
+}
+
+.module:hover .module-content::before {
+    left: 100%;
+}
+
+/* ================================================================
+   HEALTH MODULE LAYOUT
+   ================================================================ */
+
+.health-module .module-content {
+    min-width: 200px;
+}
+
+.status-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.status-bar.hidden {
+    opacity: 0;
+    transform: scaleY(0);
+    margin: 0;
+    min-height: 0;
+    padding: 0;
+}
+
+.status-icon {
+    margin-right: 10px;
+    font-size: 16px;
+    min-width: 20px;
+    text-align: center;
+    z-index: 2;
+}
+
+.status-progress {
+    flex: 1;
+    position: relative;
+    height: 12px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-right: 10px;
+}
+
+.progress-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 6px;
+    transition: width var(--transition-speed) ease;
+    z-index: 1;
+}
+
+.progress-text {
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 30px;
+    text-align: right;
+    z-index: 2;
+}
+
+/* ================================================================
+   STATUS MODULE LAYOUT
+   ================================================================ */
+
+.status-module .module-content {
+    padding: 8px;
+}
+
+.indicator-grid {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.status-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px;
+    transition: all var(--transition-speed) ease;
+    position: relative;
+}
+
+.status-indicator:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(176, 38, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.indicator-icon {
+    font-size: 16px;
+    margin-bottom: 2px;
+    color: var(--primary);
+}
+
+.indicator-level {
+    font-size: 9px;
+    font-weight: bold;
+    color: var(--text-secondary);
+}
+
+/* ================================================================
+   TIME MODULE LAYOUT
+   ================================================================ */
+
+.time-module .module-content {
+    text-align: right;
+    min-width: 120px;
+    padding: 12px;
+}
+
+.time-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.time-main {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: var(--primary);
+    text-shadow: 0 0 15px var(--primary);
+    line-height: 1;
+}
+
+.date-display {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.weather-display {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--secondary);
+    margin-top: 4px;
+}
+
+/* ================================================================
+   MONEY MODULE LAYOUT
+   ================================================================ */
+
+.money-module {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.money-display {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-width: 120px;
+    justify-content: flex-end;
+    transition: all var(--transition-speed) ease;
+}
+
+.money-display:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.money-symbol {
+    font-size: 14px;
+    color: var(--accent);
+    margin-right: 6px;
+    font-weight: bold;
+}
+
+.money-amount {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.money-change {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 6px 10px;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+    animation: fadeIn 0.5s ease;
+}
+
+.change-symbol {
+    font-size: 12px;
+    margin-right: 4px;
+    font-weight: bold;
+}
+
+.change-symbol.positive { color: #00ff41; }
+.change-symbol.negative { color: #ff0040; }
+
+.change-amount {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+/* ================================================================
+   VISIBILITY STATES
+   ================================================================ */
+
+.hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: scale(0.8) !important;
+}
+
+.visible {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: scale(1) !important;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ================================================================
+   STATUS EFFECT CLASSES
+   ================================================================ */
+
+.critical {
+    border-color: #ff0040 !important;
+    box-shadow: 0 0 15px rgba(255, 0, 64, 0.6) !important;
+}
+
+.warning {
+    border-color: #ff9500 !important;
+    box-shadow: 0 0 15px rgba(255, 149, 0, 0.4) !important;
+}
+
+.normal {
+    border-color: var(--primary);
+    box-shadow: var(--glow-primary);
+}
+
+.full {
+    border-color: #00ff41 !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4) !important;
+}
+
+/* Flash Effects */
+.flash-damage {
+    animation: flashRed 0.5s ease;
+}
+
+.flash-armor-break {
+    animation: flashBlue 0.5s ease;
+}
+
+@keyframes flashRed {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: rgba(255, 0, 0, 0.3); }
+}
+
+@keyframes flashBlue {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: rgba(0, 100, 255, 0.3); }
+}
+
+/* Critical Warning */
+.critical-warning {
+    animation: criticalPulse 1s infinite;
+}
+
+@keyframes criticalPulse {
+    0%, 100% { 
+        border-color: #ff0040;
+        box-shadow: 0 0 15px rgba(255, 0, 64

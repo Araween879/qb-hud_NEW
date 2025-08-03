@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS HUD - FiveM QBCore Enhanced with Voice</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --neon-cyan: #00ffff;
+            --neon-orange: #ff9800;
+            --neon-purple: #a020f0;
+            --neon-red: #ff4444;
+            --neon-blue: #00bcd4;
+            --neon-yellow: #ffb74d;
+            --neon-light-blue: #29b6f6;
+            --neon-green: #66bb6a;
+            --voice-idle: #ffffff;
+            --voice-talking: #ffff3e;
+            --voice-radio: #d64763;
+            --voice-muted: #666666;
+            --dark-bg: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+            --card-bg: linear-gradient(145deg, #1e1e1e, #0a0a0a);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: transparent;
+            font-family: 'Roboto', sans-serif;
+            color: white;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Keyframe Animations */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes glow-pulse {
+            0%, 100% { 
+                box-shadow: 0 0 12px var(--neon-purple);
+            }
+            50% { 
+                box-shadow: 0 0 20px var(--neon-purple), 0 0 30px var(--neon-purple);
+            }
+        }
+
+        @keyframes text-glow {
+            0%, 100% { 
+                text-shadow: 0 0 8px currentColor;
+            }
+            50% { 
+                text-shadow: 0 0 15px currentColor, 0 0 20px currentColor;
+            }
+        }
+
+        @keyframes scan-line {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        @keyframes data-stream {
+            0% { transform: translateY(-100%); opacity: 0; }
+            10%, 90% { opacity: 1; }
+            100% { transform: translateY(100%); opacity: 0; }
+        }
+
+        @keyframes hologram-flicker {
+            0%, 100% { opacity: 1; }
+            98% { opacity: 1; }
+            99% { opacity: 0.7; }
+        }
+
+        @keyframes voice-wave {
+            0%, 100% { transform: scaleY(1); }
+            25% { transform: scaleY(1.4); }
+            50% { transform: scaleY(0.8); }
+            75% { transform: scaleY(1.2); }
+        }
+
+        @keyframes mic-talking {
+            0%, 100% { 
+                transform: scale(1);
+                filter: drop-shadow(0 0 6px currentColor);
+            }
+            50% { 
+                transform: scale(1.15);
+                filter: drop-shadow(0 0 15px currentColor);
+            }
+        }
+
+        /* GPS/MAP HUD Container */
+        .gps-hud-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 400px;
+            height: 320px;
+            z-index: 1000;
+            font-family: 'Orbitron', monospace;
+            display: none;
+            animation: hologram-flicker 8s infinite;
+        }
+
+        /* Navigation Header */
+        .nav-header {
+            background: var(--card-bg);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 12px 12px 0 0;
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+            animation: scan-line 3s linear infinite;
+        }
+
+        .nav-header::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--neon-cyan), transparent);
+            animation: data-stream 2s linear infinite;
+        }
+
+        .location-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .location-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 0 10px white;
+        }
+
+        .direction-distance {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .direction-arrow {
+            color: var(--neon-cyan);
+            font-size: 18px;
+            animation: text-glow 2s ease-in-out infinite;
+        }
+
+        .distance {
+            color: var(--neon-cyan);
+            font-weight: 600;
+            animation: text-glow 2s ease-in-out infinite;
+        }
+
+        .time-display {
+            font-size: 20px;
+            font-weight: 900;
+            color: white;
+            text-align: right;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px white;
+        }
+
+        /* Map Container */
+        .map-container {
+            background: rgba(0, 0, 0, 0.1);
+            border-left: 2px solid var(--neon-purple);
+            border-right: 2px solid var(--neon-purple);
+            height: 200px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: glow-pulse 3s ease-in-out infinite;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+        }
+
+        .map-placeholder {
+            color: rgba(160, 32, 240, 0.4);
+            font-size: 12px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 8px rgba(160, 32, 240, 0.6);
+            line-height: 1.4;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--card-bg);
+            border: 2px solid var(--neon-purple);
+            border-radius: 0 0 12px 12px;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(160, 32, 240, 0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-bar::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-purple), transparent);
+            animation: scan-line 4s linear infinite reverse;
+        }
+
+        .status-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 6px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .status-icon::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .status-icon:hover::before {
+            opacity: 1;
+        }
+
+        .status-icon:hover {
+            transform: scale(1.15);
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        .status-icon i {
+            font-size: 18px;
+            margin-bottom: 3px;
+            filter: drop-shadow(0 0 6px currentColor);
+        }
+
+        .status-value {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 6px currentColor;
+        }
+
+        /* Voice/Microphone Specific Styles */
+        .voice {
+            color: var(--voice-idle);
+            position: relative;
+        }
+
+        .voice.talking {
+            color: var(--voice-talking);
+            animation: mic-talking 0.8s ease-in-out infinite;
+        }
+
+        .voice.radio {
+            color: var(--voice-radio);
+        }
+
+        .voice.muted {
+            color: var(--voice-muted);
+            opacity: 0.6;
+        }
+
+        .voice:hover { 
+            box-shadow: 0 0 20px currentColor;
+            transform: scale(1.15);
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        /* Voice Level Indicator */
+        .voice-level {
+            display: flex;
+            align-items: end;
+            gap: 1px;
+            height: 12px;
+            justify-content: center;
+        }
+
+        .voice-bar {
+            width: 2px;
+            background: currentColor;
+            border-radius: 1px;
+            transition: all 0.3s ease;
+            opacity: 0.3;
+        }
+
+        .voice-bar.active {
+            opacity: 1;
+            animation: voice-wave 0.6s ease-in-out infinite;
+        }
+
+        .voice-bar:nth-child(1) { height: 4px; animation-delay: 0s; }
+        .voice-bar:nth-child(2) { height: 8px; animation-delay: 0.1s; }
+        .voice-bar:nth-child(3) { height: 12px; animation-delay: 0.2s; }
+        .voice-bar:nth-child(4) { height: 8px; animation-delay: 0.3s; }
+        .voice-bar:nth-child(5) { height: 4px; animation-delay: 0.4s; }
+
+        /* Radio Channel Display */
+        .radio-channel {
+            font-size: 9px;
+            color: var(--voice-radio);
+            text-shadow: 0 0 4px currentColor;
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 3px;
+            padding: 1px 3px;
+            border: 1px solid currentColor;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .voice.radio .radio-channel {
+            opacity: 1;
+        }
+
+        /* Status-specific Colors */
+        .health { color: var(--neon-red); }
+        .armor { color: var(--neon-blue); }
+        .hunger { color: var(--neon-yellow); }
+        .thirst { color: var(--neon-light-blue); }
+        .stress { color: var(--neon-purple); }
+        .stamina { color: var(--neon-green); }
+
+        .health:hover { box-shadow: 0 0 20px var(--neon-red); }
+        .armor:hover { box-shadow: 0 0 20px var(--neon-blue); }
+        .hunger:hover { box-shadow: 0 0 20px var(--neon-yellow); }
+        .thirst:hover { box-shadow: 0 0 20px var(--neon-light-blue); }
+        .stress:hover { box-shadow: 0 0 20px var(--neon-purple); }
+        .stamina:hover { box-shadow: 0 0 20px var(--neon-green); }
+
+        /* Status Bar Indicators */
+        .status-bar-indicator {
+            width: 24px;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-fill {
+            height: 100%;
+            background: currentColor;
+            border-radius: 1px;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 6px currentColor;
+            position: relative;
+        }
+
+        .status-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: scan-line 2s linear infinite;
+        }
+
+        /* Critical State Animations */
+        .critical {
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .critical .status-fill {
+            animation: glow-pulse 1s ease-in-out infinite;
+        }
+
+        /* GPS Position Classes */
+        .gps-top-right {
+            top: 20px;
+            right: 20px;
+            bottom: auto;
+            left: auto;
+        }
+
+        .gps-top-left {
+            top: 20px;
+            left: 20px;
+            bottom: auto;
+            right: auto;
+        }
+
+        .gps-bottom-right {
+            bottom: 20px;
+            right: 20px;
+            top: auto;
+            left: auto;
+        }
+
+        .gps-bottom-left {
+            bottom: 20px;
+            left: 20px;
+            top: auto;
+            right: auto;
+        }
+
+        /* Theme Variants */
+        .theme-cyberpunk {
+            --primary: var(--neon-cyan);
+            --secondary: var(--neon-purple);
+            --accent: var(--neon-orange);
+        }
+
+        .theme-synthwave {
+            --primary: #ff0080;
+            --secondary: #8000ff;
+            --accent: var(--neon-cyan);
+        }
+
+        .theme-synthwave .nav-header {
+            border-color: #ff0080;
+            box-shadow: 0 0 15px rgba(255, 0, 128, 0.3);
+        }
+
+        .theme-synthwave .map-container {
+            border-color: #8000ff;
+            animation: glow-pulse 3s ease-in-out infinite;
+        }
+
+        .theme-synthwave .status-bar {
+            border-color: #8000ff;
+            box-shadow: 0 0 15px rgba(128, 0, 255, 0.3);
+        }
+
+        .theme-matrix {
+            --primary: #00ff00;
+            --secondary: #008000;
+            --accent: #ffffff;
+        }
+
+        .theme-matrix .nav-header {
+            border-color: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+        }
+
+        .theme-matrix .map-container {
+            border-color: #008000;
+        }
+
+        .theme-matrix .status-bar {
+            border-color: #008000;
+            box-shadow: 0 0 15px rgba(0, 128, 0, 0.3);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .gps-hud-container {
+                width: 360px;
+                height: 280px;
+                bottom: 10px;
+                left: 10px;
+            }
+
+            .nav-header {
+                padding: 12px 14px;
+            }
+
+            .location-name {
+                font-size: 13px;
+            }
+
+            .time-display {
+                font-size: 18px;
+            }
+
+            .map-container {
+                height: 160px;
+            }
+
+            .status-icon i {
+                font-size: 16px;
+            }
+
+            .status-value {
+                font-size: 10px;
+            }
+            
+            .voice-level {
+                height: 10px;
+            }
+            
+            .voice-bar {
+                width: 1.5px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .gps-hud-container {
+                width: 320px;
+                height: 240px;
+                bottom: 5px;
+                left: 5px;
+            }
+
+            .map-container {
+                height: 140px;
+            }
+
+            .status-bar {
+                padding: 8px 10px;
+            }
+
+            .status-icon {
+                padding: 3px;
+            }
+            
+            .status-icon i {
+                font-size: 14px;
+            }
+            
+            .voice-level {
+                height: 8px;
+            }
+            
+            .radio-channel {
+                font-size: 8px;
+                padding: 0px 2px;
+            }
+        }
+
+        /* Hidden State */
+        .gps-hud-container.hidden {
+            display: none !important;
+        }
+
+        /* Performance Mode */
+        .performance-mode .gps-hud-container {
+            animation: none;
+        }
+
+        .performance-mode .nav-header::before,
+        .performance-mode .nav-header::after,
+        .performance-mode .status-bar::before,
+        .performance-mode .status-fill::after {
+            animation: none;
+        }
+
+        .performance-mode .direction-arrow,
+        .performance-mode .distance,
+        .performance-mode .status-icon i,
+        .performance-mode .status-value {
+            animation: none;
+            text-shadow: 0 0 3px currentColor;
+        }
+        
+        .performance-mode .voice.talking {
+            animation: none;
+        }
+        
+        .performance-mode .voice-bar {
+            animation: none;
+        }
+        
+        .performance-mode .voice-bar.active {
+            animation: none;
+            opacity: 1;
+        }
+
+        /* Additional Visual Effects */
+        .gps-hud-container {
+            filter: drop-shadow(0 0 10px rgba(160, 32, 240, 0.2));
+        }
+
+        .status-icon.active {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        /* Data Stream Effects */
+        .nav-header .data-point {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--neon-cyan);
+            border-radius: 50%;
+            animation: data-stream 3s linear infinite;
+        }
+
+        .nav-header .data-point:nth-child(2) { animation-delay: 0.5s; }
+        .nav-header .data-point:nth-child(3) { animation-delay: 1s; }
+        .nav-header .data-point:nth-child(4) { animation-delay: 1.5s; }
+    </style>
+</head>
+<body>
+    <div class="gps-hud-container theme-cyberpunk gps-bottom-left" id="gpsHudContainer">
+        <!-- Navigation Header -->
+        <div class="nav-header">
+            <div class="data-point"></div>
+            <div class="data-point"></div>
+            <div class="data-point"></div>
+            <div class="data-point"></div>
+            
+            <div class="location-info">
+                <div class="location-name" id="locationName">VINEWOOD HILLS</div>
+                <div class="direction-distance">
+                    <i class="fas fa-arrow-up direction-arrow" id="directionArrow"></i>
+                    <span class="distance" id="distanceDisplay">0.8KM</span>
+                </div>
+            </div>
+            <div class="time-display" id="timeDisplay">05:01</div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container">
+            <div class="map-placeholder">
+                [ MINIMAP READY ]<br>
+                <i class="fas fa-map" style="font-size: 24px; margin-top: 8px; opacity: 0.3; animation: pulse 3s infinite;"></i>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <!-- Voice/Microphone Status -->
+            <div class="status-icon voice" id="voiceStatus">
+                <div class="radio-channel" id="radioChannel">CH1</div>
+                <i class="fas fa-microphone" id="voiceIcon"></i>
+                <div class="voice-level" id="voiceLevel">
+                    <div class="voice-bar"></div>
+                    <div class="voice-bar active"></div>
+                    <div class="voice-bar active"></div>
+                    <div class="voice-bar"></div>
+                    <div class="voice-bar"></div>
+                </div>
+            </div>
+
+            <div class="status-icon health" id="healthStatus">
+                <i class="fas fa-heart"></i>
+                <div class="status-value">100%</div>
+                <div class="status-bar-indicator">
+                    <div class="status-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <div class="status-icon armor" id="armorStatus">
+                <i class="fas fa-shield-alt"></i>
+                <div class="status-value">85%</div>
+                <div class="status-bar-indicator">
+                    <div class="status-fill" style="width: 85%;"></div>
+                </div>
+            </div>
+
+            <div class="status-icon hunger" id="hungerStatus">
+                <i class="fas fa-hamburger"></i>
+                <div class="status-value">72%</div>
+                <div class="status-bar-indicator">
+                    <div class="status-fill" style="width: 72%;"></div>
+                </div>
+            </div>
+
+            <div class="status-icon thirst" id="thirstStatus">
+                <i class="fas fa-tint"></i>
+                <div class="status-value">89%</div>
+                <div class="status-bar-indicator">
+                    <div class="status-fill" style="width: 89%;"></div>
+                </div>
+            </div>
+
+            <div class="status-icon stress" id="stressStatus">
+                <i class="fas fa-brain"></i>
+                <div class="status-value">15%</div>
+                <div class="status-bar-indicator">
+                    <div class="status-fill" style="width: 15%;"></div>
+                </div>
+            </div>
+
+            <div class="status-icon stamina" id="staminaStatus">
+                <i class="fas fa-running"></i>
+                <div class="status-value">94%</div>
+                <div class="status-bar-indicator">
+                    <div class="status-fill" style="width: 94%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // GPS HUD Controller Class
+        class GPSHudController {
+            constructor() {
+                this.container = document.getElementById('gpsHudContainer');
+                this.locationName = document.getElementById('locationName');
+                this.directionArrow = document.getElementById('directionArrow');
+                this.distanceDisplay = document.getElementById('distanceDisplay');
+                this.timeDisplay = document.getElementById('timeDisplay');
+                
+                // Voice elements
+                this.voiceStatus = document.getElementById('voiceStatus');
+                this.voiceIcon = document.getElementById('voiceIcon');
+                this.voiceLevel = document.getElementById('voiceLevel');
+                this.radioChannel = document.getElementById('radioChannel');
+                
+                this.statusElements = {
+                    voice: document.getElementById('voiceStatus'),
+                    health: document.getElementById('healthStatus'),
+                    armor: document.getElementById('armorStatus'),
+                    hunger: document.getElementById('hungerStatus'),
+                    thirst: document.getElementById('thirstStatus'),
+                    stress: document.getElementById('stressStatus'),
+                    stamina: document.getElementById('staminaStatus')
+                };
+                
+                this.isVisible = false;
+                this.currentTheme = 'cyberpunk';
+                this.currentPosition = 'bottom-left';
+                this.performanceMode = false;
+                
+                // Voice state
+                this.voiceState = {
+                    level: 2,
+                    talking: false,
+                    radioActive: false,
+                    radioChannel: 0,
+                    muted: false
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                this.updateTime();
+                setInterval(() => this.updateTime(), 1000);
+                
+                // Listen for FiveM events
+                window.addEventListener('message', (event) => {
+                    this.handleMessage(event.data);
+                });
+                
+                // Add click handlers for status icons
+                Object.entries(this.statusElements).forEach(([key, element]) => {
+                    element.addEventListener('click', () => {
+                        this.triggerStatusAlert(key);
+                    });
+                });
+                
+                // Initialize voice display
+                this.updateVoiceDisplay();
+            }
+            
+            handleMessage(data) {
+                switch(data.action) {
+                    case 'toggleGpsHud':
+                        this.toggle(data.show);
+                        break;
+                    case 'updateLocation':
+                        this.updateLocation(data);
+                        break;
+                    case 'updateStatus':
+                        this.updateStatus(data);
+                        break;
+                    case 'updateVoice':
+                        this.updateVoice(data);
+                        break;
+                    case 'updateTheme':
+                        this.setTheme(data.theme);
+                        break;
+                    case 'updatePosition':
+                        this.setPosition(data.position);
+                        break;
+                    case 'setPerformanceMode':
+                        this.setPerformanceMode(data.enabled);
+                        break;
+                }
+            }
+            
+            toggle(show) {
+                this.isVisible = show;
+                if (show) {
+                    this.container.style.display = 'block';
+                    this.container.classList.remove('hidden');
+                } else {
+                    this.container.style.display = 'none';
+                    this.container.classList.add('hidden');
+                }
+            }
+            
+            updateLocation(data) {
+                if (data.location) {
+                    this.locationName.textContent = data.location.toUpperCase();
+                }
+                
+                if (data.distance) {
+                    this.distanceDisplay.textContent = data.distance + 'KM';
+                }
+                
+                if (data.direction !== undefined) {
+                    const directions = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+                    const directionIndex = Math.floor(data.direction / 45) % 8;
+                    this.directionArrow.innerHTML = directions[directionIndex];
+                }
+            }
+            
+            updateStatus(data) {
+                Object.entries(data).forEach(([key, value]) => {
+                    if (this.statusElements[key] && key !== 'voice') {
+                        const element = this.statusElements[key];
+                        const valueElement = element.querySelector('.status-value');
+                        const fillElement = element.querySelector('.status-fill');
+                        
+                        if (valueElement && fillElement) {
+                            valueElement.textContent = value + '%';
+                            fillElement.style.width = value + '%';
+                            
+                            // Add critical state for low values
+                            if ((key !== 'stress' && value <= 20) || (key === 'stress' && value >= 80)) {
+                                element.classList.add('critical');
+                            } else {
+                                element.classList.remove('critical');
+                            }
+                        }
+                    }
+                });
+            }
+            
+            updateVoice(data) {
+                try {
+                    // Update voice state with validation
+                    if (data.level !== undefined && data.level >= 0 && data.level <= 5) {
+                        this.voiceState.level = data.level;
+                    }
+                    if (data.talking !== undefined) this.voiceState.talking = data.talking;
+                    if (data.radioActive !== undefined) this.voiceState.radioActive = data.radioActive;
+                    if (data.radioChannel !== undefined && data.radioChannel >= 0) {
+                        this.voiceState.radioChannel = data.radioChannel;
+                    }
+                    if (data.muted !== undefined) this.voiceState.muted = data.muted;
+                    
+                    this.updateVoiceDisplay();
+                } catch (error) {
+                    console.error('Error updating voice:', error);
+                    // Fallback to safe state
+                    this.voiceState = {
+                        level: 2,
+                        talking: false,
+                        radioActive: false,
+                        radioChannel: 0,
+                        muted: false
+                    };
+                    this.updateVoiceDisplay();
+                }
+            }
+            
+            updateVoiceDisplay() {
+                const voiceElement = this.voiceStatus;
+                const voiceIcon = this.voiceIcon;
+                const voiceLevel = this.voiceLevel;
+                const radioChannel = this.radioChannel;
+                
+                // Reset classes
+                voiceElement.classList.remove('talking', 'radio', 'muted');
+                
+                // Set voice icon based on state
+                if (this.voiceState.muted) {
+                    voiceIcon.className = 'fas fa-microphone-slash';
+                    voiceElement.classList.add('muted');
+                } else if (this.voiceState.radioActive && this.voiceState.radioChannel > 0) {
+                    voiceIcon.className = 'fas fa-headset';
+                    voiceElement.classList.add('radio');
+                    radioChannel.textContent = `CH${this.voiceState.radioChannel}`;
+                } else if (this.voiceState.talking) {
+                    voiceIcon.className = 'fas fa-microphone';
+                    voiceElement.classList.add('talking');
+                } else {
+                    // Determine icon based on voice level
+                    if (this.voiceState.level === 1) {
+                        voiceIcon.className = 'fas fa-microphone-slash';
+                    } else if (this.voiceState.level <= 2) {
+                        voiceIcon.className = 'fas fa-microphone';
+                    } else if (this.voiceState.level === 3) {
+                        voiceIcon.className = 'fas fa-volume-up';
+                    } else {
+                        voiceIcon.className = 'fas fa-bullhorn';
+                    }
+                }
+                
+                // Update voice level bars with proper validation
+                const bars = voiceLevel.querySelectorAll('.voice-bar');
+                bars.forEach((bar, index) => {
+                    if (index < Math.max(1, this.voiceState.level) && !this.voiceState.muted) {
+                        bar.classList.add('active');
+                    } else {
+                        bar.classList.remove('active');
+                    }
+                });
+                
+                // Trigger update animation
+                voiceElement.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    voiceElement.style.transform = 'scale(1)';
+                }, 150);
+            }
+            
+            updateTime() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                this.timeDisplay.textContent = `${hours}:${minutes}`;
+            }
+            
+            setTheme(theme) {
+                this.container.classList.remove('theme-cyberpunk', 'theme-synthwave', 'theme-matrix');
+                this.container.classList.add(`theme-${theme}`);
+                this.currentTheme = theme;
+            }
+            
+            setPosition(position) {
+                this.container.classList.remove('gps-top-right', 'gps-top-left', 'gps-bottom-right', 'gps-bottom-left');
+                this.container.classList.add(`gps-${position}`);
+                this.currentPosition = position;
+            }
+            
+            setPerformanceMode(enabled) {
+                this.performanceMode = enabled;
+                if (enabled) {
+                    document.body.classList.add('performance-mode');
+                } else {
+                    document.body.classList.remove('performance-mode');
+                }
+            }
+            
+            triggerStatusAlert(statusType) {
+                const element = this.statusElements[statusType];
+                if (element) {
+                    element.classList.add('active');
+                    setTimeout(() => {
+                        element.classList.remove('active');
+                    }, 1000);
+                    
+                    // Send event to FiveM client
+                    if (window.fetch) {
+                        fetch(`https://${this.getResourceName()}/statusIconClicked`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                statusType: statusType
+                            })
+                        }).catch(() => {}); // Ignore fetch errors in NUI
+                    }
+                }
+            }
+            
+            getResourceName() {
+                return window.location.hostname === 'nui-game-internal' ? 'qb-hud' : 'qb-hud';
+            }
+            
+            // Simulation methods for development/testing
+            simulateLocationUpdate() {
+                const locations = [
+                    'VINEWOOD HILLS', 'DOWNTOWN LS', 'VESPUCCI BEACH', 
+                    'BLAINE COUNTY', 'PALETO BAY', 'SANDY SHORES'
+                ];
+                const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+                const randomDistance = (Math.random() * 5).toFixed(1);
+                const randomDirection = Math.floor(Math.random() * 360);
+                
+                this.updateLocation({
+                    location: randomLocation,
+                    distance: randomDistance,
+                    direction: randomDirection
+                });
+            }
+            
+            simulateStatusUpdate() {
+                const statusUpdates = {};
+                Object.keys(this.statusElements).forEach(key => {
+                    if (key !== 'voice') {
+                        let newValue;
+                        if (key === 'stress') {
+                            newValue = Math.floor(Math.random() * 50); // Keep stress lower
+                        } else {
+                            newValue = Math.floor(Math.random() * 100);
+                        }
+                        statusUpdates[key] = newValue;
+                    }
+                });
+                
+                this.updateStatus(statusUpdates);
+            }
+            
+            simulateVoiceUpdate() {
+                const voiceStates = [
+                    { level: 1, talking: false, radioActive: false, radioChannel: 0, muted: false },
+                    { level: 2, talking: true, radioActive: false, radioChannel: 0, muted: false },
+                    { level: 3, talking: false, radioActive: true, radioChannel: 1, muted: false },
+                    { level: 4, talking: true, radioActive: true, radioChannel: 2, muted: false },
+                    { level: 0, talking: false, radioActive: false, radioChannel: 0, muted: true }
+                ];
+                
+                const randomState = voiceStates[Math.floor(Math.random() * voiceStates.length)];
+                this.updateVoice(randomState);
+            }
+        }
+
+        // Initialize GPS HUD Controller
+        const gpsHud = new GPSHudController();
+
+        // Development/Testing Functions
+        if (window.location.hostname !== 'nui-game-internal') {
+            // Enable testing functions if not in FiveM
+            window.testGpsHud = {
+                toggle: (show) => gpsHud.toggle(show),
+                updateLocation: () => gpsHud.simulateLocationUpdate(),
+                updateStatus: () => gpsHud.simulateStatusUpdate(),
+                updateVoice: () => gpsHud.simulateVoiceUpdate(),
+                setTheme: (theme) => gpsHud.setTheme(theme),
+                setPosition: (position) => gpsHud.setPosition(position),
+                setPerformanceMode: (enabled) => gpsHud.setPerformanceMode(enabled)
+            };
+            
+            // Auto-show for testing
+            gpsHud.toggle(true);
+            
+            // Demo updates
+            setInterval(() => gpsHud.simulateLocationUpdate(), 10000);
+            setInterval(() => gpsHud.simulateStatusUpdate(), 8000);
+            setInterval(() => gpsHud.simulateVoiceUpdate(), 3000);
+        }
+
+        // Keyboard shortcuts for development
+        document.addEventListener('keydown', function(e) {
+            if (window.location.hostname !== 'nui-game-internal') {
+                switch(e.key) {
+                    case '1':
+                        gpsHud.setTheme('cyberpunk');
+                        break;
+                    case '2':
+                        gpsHud.setTheme('synthwave');
+                        break;
+                    case '3':
+                        gpsHud.setTheme('matrix');
+                        break;
+                    case 'h':
+                        gpsHud.toggle(!gpsHud.isVisible);
+                        break;
+                    case 'p':
+                        gpsHud.setPerformanceMode(!gpsHud.performanceMode);
+                        break;
+                    case 'v':
+                        gpsHud.simulateVoiceUpdate();
+                        break;
+                }
+            }
+        });
+
+        // Export for external access
+        window.gpsHudController = gpsHud;
+    </script>
+</body>
+</html>
