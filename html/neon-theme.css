@@ -1,0 +1,660 @@
+/* ================================================================
+   QBCore HUD - Neon Theme CSS (DESIGN-DNA)
+   Version: 3.0.0
+   Description: Gemeinsame Design-DNA für alle Module
+                Orbitron Font, Neon-Farben, Animationen, Ultra-thin Layout
+   ================================================================ */
+
+/* ================================================================
+   DESIGN-DNA VARIABLEN (OBERSTE REGEL)
+   ================================================================ */
+
+:root {
+    /* Neon Design-DNA Farben */
+    --primary: #B026FF;     /* Magenta/Violett */
+    --secondary: #0ff;      /* Cyan */
+    --accent: #FFD700;      /* Gold */
+    --bg-dark: #1a1a1a;     /* Dunkler Hintergrund */
+    --bg-darker: #111;      /* Noch dunkler */
+    --text-primary: #fff;   /* Haupttext */
+    --text-secondary: #e0e0e0; /* Sekundärtext */
+    --text-muted: rgba(255, 255, 255, 0.7);
+    
+    /* Status-spezifische Farben */
+    --health-color: #ff4444;
+    --armor-color: #00bcd4;
+    --hunger-color: #ffb74d;
+    --thirst-color: #29b6f6;
+    --stress-color: #a020f0;
+    --stamina-color: #66bb6a;
+    --voice-color: #4caf50;
+    --oxygen-color: #81d4fa;
+    
+    /* Navigation-spezifische Farben */
+    --waypoint-color: #ff6b35;
+    --route-color: #4ecdc4;
+    --compass-color: #45b7d1;
+    --location-color: #96ceb4;
+    
+    /* UI-State Farben */
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+    --error-color: #f44336;
+    --info-color: #2196f3;
+    
+    /* Animationen & Effekte */
+    --transition: all 0.3s ease;
+    --transition-fast: all 0.15s ease;
+    --transition-slow: all 0.6s ease;
+    --glow: 0 0 15px rgba(176, 38, 255, 0.4);
+    --glow-strong: 0 0 25px rgba(176, 38, 255, 0.8);
+    --glow-intense: 0 0 35px rgba(176, 38, 255, 1.0);
+    
+    /* Schatten & Tiefe */
+    --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.6);
+    --shadow-neon: 0 0 20px rgba(176, 38, 255, 0.3);
+    
+    /* Ultra-thin Layout Werte */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 20px;
+    --spacing-xxl: 24px;
+    
+    /* Border Radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-round: 50%;
+    
+    /* Typography */
+    --font-primary: 'Orbitron', monospace;
+    --font-secondary: 'Roboto', sans-serif;
+    --font-weight-light: 300;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-bold: 700;
+    --font-weight-black: 900;
+    --letter-spacing-tight: 0.5px;
+    --letter-spacing-normal: 1px;
+    --letter-spacing-wide: 2px;
+    --letter-spacing-wider: 3px;
+}
+
+/* ================================================================
+   THEME VARIATIONEN
+   ================================================================ */
+
+/* Neon Cyan Theme */
+[data-theme="neon-cyan"] {
+    --primary: #0ff;
+    --secondary: #B026FF;
+    --glow: 0 0 15px rgba(0, 255, 255, 0.4);
+    --glow-strong: 0 0 25px rgba(0, 255, 255, 0.8);
+    --glow-intense: 0 0 35px rgba(0, 255, 255, 1.0);
+    --shadow-neon: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+/* Classic Theme */
+[data-theme="classic"] {
+    --primary: #ffffff;
+    --secondary: #cccccc;
+    --accent: #ffff00;
+    --glow: 0 0 15px rgba(255, 255, 255, 0.4);
+    --glow-strong: 0 0 25px rgba(255, 255, 255, 0.8);
+    --glow-intense: 0 0 35px rgba(255, 255, 255, 1.0);
+    --shadow-neon: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+/* ================================================================
+   GLOBALE RESET & BASIS
+   ================================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-primary);
+    background: transparent;
+    color: var(--text-primary);
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+    line-height: 1.4;
+}
+
+/* ================================================================
+   TYPOGRAPHY KLASSEN
+   ================================================================ */
+
+.font-primary {
+    font-family: var(--font-primary);
+}
+
+.font-secondary {
+    font-family: var(--font-secondary);
+}
+
+.text-uppercase {
+    text-transform: uppercase;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.letter-spacing-tight {
+    letter-spacing: var(--letter-spacing-tight);
+}
+
+.letter-spacing-normal {
+    letter-spacing: var(--letter-spacing-normal);
+}
+
+.letter-spacing-wide {
+    letter-spacing: var(--letter-spacing-wide);
+}
+
+.letter-spacing-wider {
+    letter-spacing: var(--letter-spacing-wider);
+}
+
+.font-weight-light {
+    font-weight: var(--font-weight-light);
+}
+
+.font-weight-normal {
+    font-weight: var(--font-weight-normal);
+}
+
+.font-weight-medium {
+    font-weight: var(--font-weight-medium);
+}
+
+.font-weight-bold {
+    font-weight: var(--font-weight-bold);
+}
+
+.font-weight-black {
+    font-weight: var(--font-weight-black);
+}
+
+/* ================================================================
+   NEON-DESIGN KOMPONENTEN
+   ================================================================ */
+
+/* Neon Container Base */
+.neon-container {
+    background: linear-gradient(145deg, rgba(30, 30, 30, 0.9), rgba(10, 10, 10, 0.9));
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--glow), var(--shadow-medium);
+    transition: var(--transition);
+}
+
+.neon-container:hover {
+    box-shadow: var(--glow-strong), var(--shadow-heavy);
+    transform: translateY(-2px);
+}
+
+/* Neon Panel */
+.neon-panel {
+    @extend .neon-container;
+    padding: var(--spacing-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Neon Button */
+.neon-btn {
+    background: linear-gradient(145deg, var(--primary), rgba(176, 38, 255, 0.8));
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-md);
+    color: white;
+    font-family: var(--font-primary);
+    font-size: 12px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-normal);
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--glow);
+    position: relative;
+    overflow: hidden;
+}
+
+.neon-btn:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: var(--glow-strong);
+}
+
+.neon-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.neon-btn.secondary {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: var(--shadow-light);
+}
+
+.neon-btn.danger {
+    background: linear-gradient(145deg, var(--error-color), rgba(244, 67, 54, 0.8));
+    border-color: var(--error-color);
+}
+
+.neon-btn.success {
+    background: linear-gradient(145deg, var(--success-color), rgba(76, 175, 80, 0.8));
+    border-color: var(--success-color);
+}
+
+/* Neon Input */
+.neon-input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-secondary);
+    font-size: 14px;
+    padding: 10px 12px;
+    outline: none;
+    transition: var(--transition);
+}
+
+.neon-input:focus {
+    border-color: var(--secondary);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.neon-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Neon Toggle Switch */
+.neon-toggle {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.neon-toggle.active {
+    background: var(--primary);
+    box-shadow: var(--glow);
+}
+
+.neon-toggle-slider {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: var(--radius-round);
+    transition: var(--transition);
+}
+
+.neon-toggle.active .neon-toggle-slider {
+    transform: translateX(30px);
+}
+
+/* ================================================================
+   ANIMATIONEN
+   ================================================================ */
+
+/* Scanning Animation (6s infinite) */
+@keyframes scanLine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.scan-effect::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(176, 38, 255, 0.2), 
+        transparent
+    );
+    animation: scanLine 6s infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Pulse Animation */
+@keyframes neonPulse {
+    0%, 100% { 
+        box-shadow: var(--glow);
+        border-color: var(--primary);
+    }
+    50% { 
+        box-shadow: var(--glow-strong);
+        border-color: var(--secondary);
+    }
+}
+
+.pulse-effect {
+    animation: neonPulse 2s infinite;
+}
+
+/* Critical Pulse (für Warnungen) */
+@keyframes criticalPulse {
+    0%, 100% { 
+        box-shadow: var(--glow);
+        border-color: var(--primary);
+    }
+    50% { 
+        box-shadow: 0 0 25px rgba(255, 0, 0, 0.8);
+        border-color: #ff0000;
+    }
+}
+
+.critical-pulse {
+    animation: criticalPulse 1.5s infinite;
+}
+
+/* Glow Intensify */
+@keyframes glowIntensify {
+    0% { box-shadow: var(--glow); }
+    100% { box-shadow: var(--glow-intense); }
+}
+
+.glow-intensify {
+    animation: glowIntensify 0.3s ease-out forwards;
+}
+
+/* Spin Animation (für Compass) */
+@keyframes neonSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin-effect {
+    animation: neonSpin 8s linear infinite;
+}
+
+/* Breathing Effect */
+@keyframes breathe {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.02); }
+}
+
+.breathe-effect {
+    animation: breathe 3s ease-in-out infinite;
+}
+
+/* ================================================================
+   STATUS-SPEZIFISCHE KLASSEN
+   ================================================================ */
+
+.status-health { color: var(--health-color); }
+.status-armor { color: var(--armor-color); }
+.status-hunger { color: var(--hunger-color); }
+.status-thirst { color: var(--thirst-color); }
+.status-stress { color: var(--stress-color); }
+.status-stamina { color: var(--stamina-color); }
+.status-voice { color: var(--voice-color); }
+.status-oxygen { color: var(--oxygen-color); }
+
+.status-health-bg { background-color: var(--health-color); }
+.status-armor-bg { background-color: var(--armor-color); }
+.status-hunger-bg { background-color: var(--hunger-color); }
+.status-thirst-bg { background-color: var(--thirst-color); }
+.status-stress-bg { background-color: var(--stress-color); }
+.status-stamina-bg { background-color: var(--stamina-color); }
+.status-voice-bg { background-color: var(--voice-color); }
+.status-oxygen-bg { background-color: var(--oxygen-color); }
+
+/* ================================================================
+   NAVIGATION-SPEZIFISCHE KLASSEN
+   ================================================================ */
+
+.nav-waypoint { color: var(--waypoint-color); }
+.nav-route { color: var(--route-color); }
+.nav-compass { color: var(--compass-color); }
+.nav-location { color: var(--location-color); }
+
+.nav-waypoint-bg { background-color: var(--waypoint-color); }
+.nav-route-bg { background-color: var(--route-color); }
+.nav-compass-bg { background-color: var(--compass-color); }
+.nav-location-bg { background-color: var(--location-color); }
+
+/* ================================================================
+   LAYOUT HELPERS
+   ================================================================ */
+
+/* Flexbox Utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-center { align-items: center; justify-content: center; }
+.flex-between { justify-content: space-between; }
+.flex-around { justify-content: space-around; }
+.flex-start { justify-content: flex-start; }
+.flex-end { justify-content: flex-end; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.flex-1 { flex: 1; }
+.flex-grow { flex-grow: 1; }
+.flex-shrink { flex-shrink: 1; }
+
+/* Spacing Utilities */
+.gap-xs { gap: var(--spacing-xs); }
+.gap-sm { gap: var(--spacing-sm); }
+.gap-md { gap: var(--spacing-md); }
+.gap-lg { gap: var(--spacing-lg); }
+.gap-xl { gap: var(--spacing-xl); }
+.gap-xxl { gap: var(--spacing-xxl); }
+
+.p-xs { padding: var(--spacing-xs); }
+.p-sm { padding: var(--spacing-sm); }
+.p-md { padding: var(--spacing-md); }
+.p-lg { padding: var(--spacing-lg); }
+.p-xl { padding: var(--spacing-xl); }
+.p-xxl { padding: var(--spacing-xxl); }
+
+.m-xs { margin: var(--spacing-xs); }
+.m-sm { margin: var(--spacing-sm); }
+.m-md { margin: var(--spacing-md); }
+.m-lg { margin: var(--spacing-lg); }
+.m-xl { margin: var(--spacing-xl); }
+.m-xxl { margin: var(--spacing-xxl); }
+
+/* Border Radius Utilities */
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
+.rounded-full { border-radius: var(--radius-round); }
+
+/* ================================================================
+   UTILITY KLASSEN
+   ================================================================ */
+
+.hidden { display: none !important; }
+.invisible { visibility: hidden; }
+.opacity-0 { opacity: 0; }
+.opacity-50 { opacity: 0.5; }
+.opacity-75 { opacity: 0.75; }
+.opacity-100 { opacity: 1; }
+
+.pointer-events-none { pointer-events: none; }
+.pointer-events-auto { pointer-events: auto; }
+
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+
+.z-10 { z-index: 10; }
+.z-20 { z-index: 20; }
+.z-30 { z-index: 30; }
+.z-40 { z-index: 40; }
+.z-50 { z-index: 50; }
+
+.cursor-pointer { cursor: pointer; }
+.cursor-not-allowed { cursor: not-allowed; }
+
+.select-none { user-select: none; -webkit-user-select: none; }
+.select-auto { user-select: auto; -webkit-user-select: auto; }
+
+/* ================================================================
+   RESPONSIVE DESIGN
+   ================================================================ */
+
+/* Tablet */
+@media (max-width: 768px) {
+    :root {
+        --spacing-xs: 3px;
+        --spacing-sm: 6px;
+        --spacing-md: 10px;
+        --spacing-lg: 14px;
+        --spacing-xl: 18px;
+        --spacing-xxl: 22px;
+    }
+    
+    .neon-btn {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+    
+    .neon-input {
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    :root {
+        --spacing-xs: 2px;
+        --spacing-sm: 4px;
+        --spacing-md: 8px;
+        --spacing-lg: 12px;
+        --spacing-xl: 16px;
+        --spacing-xxl: 20px;
+    }
+    
+    html {
+        font-size: 14px;
+    }
+    
+    .neon-btn {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
+    
+    .neon-input {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    
+    .neon-toggle {
+        width: 50px;
+        height: 25px;
+    }
+    
+    .neon-toggle-slider {
+        width: 20px;
+        height: 20px;
+        top: 2.5px;
+        left: 2.5px;
+    }
+    
+    .neon-toggle.active .neon-toggle-slider {
+        transform: translateX(25px);
+    }
+}
+
+/* ================================================================
+   SCROLLBAR STYLING
+   ================================================================ */
+
+/* Webkit Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Firefox Scrollbars */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) rgba(255, 255, 255, 0.1);
+}
+
+/* ================================================================
+   PERFORMANCE OPTIMIERUNGEN
+   ================================================================ */
+
+/* GPU Acceleration für Animationen */
+.neon-container,
+.neon-btn,
+.neon-toggle-slider {
+    will-change: transform, box-shadow, border-color;
+    transform: translateZ(0);
+}
+
+/* Reduce Motion für Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .scan-effect::after {
+        animation: none;
+    }
+    
+    .pulse-effect,
+    .critical-pulse,
+    .spin-effect,
+    .breathe-effect {
+        animation: none;
+    }
+}

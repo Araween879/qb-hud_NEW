@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="neon-magenta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Menu Interface</title>
+    
+    <!-- Neon Design-DNA Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            /* Neon Design-DNA Farben */
+            --primary: #B026FF;     /* Magenta */
+            --secondary: #0ff;      /* Cyan */
+            --accent: #FFD700;      /* Gold */
+            --bg-dark: #1a1a1a;
+            --bg-darker: #111;
+            --text-primary: #fff;
+            --text-secondary: #e0e0e0;
+            
+            /* Navigation Menu Farben */
+            --favorite-color: #ff6b35;
+            --poi-color: #4ecdc4;
+            --recent-color: #45b7d1;
+            --search-color: #96ceb4;
+            
+            /* Animationen */
+            --transition: all 0.3s ease;
+            --glow: 0 0 15px rgba(176, 38, 255, 0.4);
+            --glow-strong: 0 0 25px rgba(176, 38, 255, 0.8);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Orbitron', 'Roboto', sans-serif;
+            background: rgba(10, 10, 10, 0.95);
+            color: var(--text-primary);
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+        }
+        
+        /* Navigation Menu Container */
+        .nav-menu-container {
+            position: fixed;
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+            width: 400px;
+            max-height: 90vh;
+            background: linear-gradient(145deg, rgba(30, 30, 30, 0.95), rgba(10, 10, 10, 0.95));
+            border: 2px solid var(--primary);
+            border-radius: 16px;
+            box-shadow: var(--glow-strong), inset 0 0 50px rgba(176, 38, 255, 0.1);
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            pointer-events: auto;
+        }
+        
+        /* Header */
+        .nav-menu-header {
+            padding: 16px 20px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            position: relative;
+        }
+        
+        .nav-menu-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--bg-darker);
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .close-btn:hover {
+            background: rgba(255, 0, 0, 0.3);
+            transform: scale(1.1);
+        }
+        
+        /* Search Bar */
+        .search-container {
+            padding: 16px;
+            border-bottom: 1px solid rgba(176, 38, 255, 0.3);
+        }
+        
+        .search-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--primary);
+            border-radius: 8px;
+            padding: 10px 12px;
+            padding-left: 40px;
+            color: var(--text-primary);
+            font-family: 'Roboto', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: var(--transition);
+        }
+        
+        .search-input:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+        
+        .search-input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 28px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--search-color);
+            font-size: 16px;
+        }
+        
+        .search-container {
+            position: relative;
+        }
+        
+        /* Category Tabs */
+        .category-tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(176, 38, 255, 0.3);
+        }
+        
+        .category-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 12px 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            border-bottom: 2px solid transparent;
+        }
+        
+        .category-tab:hover {
+            color: var(--primary);
+            background: rgba(176, 38, 255, 0.05);
+        }
+        
+        .category-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: rgba(176, 38, 255, 0.1);
+        }
+        
+        /* Content Area */
+        .nav-menu-content {
+            max-height: calc(90vh - 200px);
+            overflow-y: auto;
+        }
+        
+        .category-content {
+            display: none;
+            padding: 16px;
+        }
+        
+        .category-content.active {
+            display: block;
+        }
+        
+        /* Location Items */
+        .location-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .location-item:hover {
+            background: rgba(176, 38, 255, 0.1);
+            border-color: var(--primary);
+            transform: translateX(5px);
+            box-shadow: var(--glow);
+        }
+        
+        .location-icon {
+            font-size: 16px;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .location-info {
+            flex: 1;
+        }
+        
+        .location-name {
+            font-family: 'Roboto', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+        
+        .location-details {
+            font-size: 11px;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+        
+        .location-distance {
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            color: var(--accent);
+            opacity: 0,8;
+        }
+        
+        .location-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .action-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .action-btn:hover {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        /* Favorites */
+        .favorites-content .location-icon {
+            color: var(--favorite-color);
+        }
+        
+        .favorites-content .location-item:hover {
+            border-color: var(--favorite-color);
+            box-shadow: 0 0 15px rgba(255, 107, 53, 0.4);
+        }
+        
+        /* POIs */
+        .pois-content .location-icon {
+            color: var(--poi-color);
+        }
+        
+        .pois-content .location-item:hover {
+            border-color: var(--poi-color);
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);
+        }
+        
+        /* Recent */
+        .recent-content .location-icon {
+            color: var(--recent-color);
+        }
+        
+        .recent-content .location-item:hover {
+            border-color: var(--recent-color);
+            box-shadow: 0 0 15px rgba(69, 183, 209, 0.4);
+        }
+        
+        /* Current Location */
+        .current-location {
+            padding: 16px;
+            background: linear-gradient(145deg, rgba(150, 206, 180, 0.2), rgba(10, 10, 10, 0.5));
+            border: 1px solid var(--search-color);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .current-location-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--search-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        
+        .current-location-name {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+        
+        .current-location-details {
+            font-size: 11px;
+            color: var(--text-secondary);
+            opacity: 0.8;
+        }
+        
+        .add-favorite-btn {
+            background: linear-gradient(145deg, var(--favorite-color), rgba(255, 107, 53, 0.8));
+            border: 1px solid var(--favorite-color);
+            border-radius: 6px;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 8px;
+        }
+        
+        .add-favorite-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+            opacity: 0.6;
+        }
+        
+        .empty-state i {
+            font-size: 32px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        .empty-state-text {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .empty-state-subtext {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        
+        /* Scrollbar */
+        .nav-menu-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .nav-menu-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        
+        .nav-menu-content::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+        
+        .nav-menu-content::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary);
+        }
+        
+        /* Scan Animation */
+        @keyframes scanLine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .nav-menu-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(176, 38, 255, 0.2), 
+                transparent
+            );
+            animation: scanLine 6s infinite;
+            pointer-events: none;
+        }
+        
+        /* Pulse Animation for Active Items */
+        @keyframes activePulse {
+            0%, 100% { 
+                box-shadow: var(--glow);
+            }
+            50% { 
+                box-shadow: var(--glow-strong);
+            }
+        }
+        
+        .location-item.active {
+            animation: activePulse 2s infinite;
+            border-color: var(--accent);
+        }
+        
+        /* Hidden State */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Themes */
+        [data-theme="neon-cyan"] {
+            --primary: #0ff;
+            --glow: 0 0 15px rgba(0, 255, 255, 0.4);
+            --glow-strong: 0 0 25px rgba(0, 255, 255, 0.8);
+        }
+        
+        [data-theme="classic"] {
+            --primary: #ffffff;
+            --secondary: #cccccc;
+            --accent: #ffff00;
+            --glow: 0 0 15px rgba(255, 255, 255, 0.4);
+            --glow-strong: 0 0 25px rgba(255, 255, 255, 0.8);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav-menu-container {
+                left: 10px;
+                width: calc(100vw - 20px);
+                max-width: 350px;
+            }
+            
+            .location-item {
+                padding: 10px;
+            }
+            
+            .location-name {
+                font-size: 13px;
+            }
+            
+            .location-details {
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-menu-container" id="nav-menu">
+        
+        <!-- Header -->
+        <div class="nav-menu-header">
+            <div class="nav-menu-title">NAVIGATION</div>
+            <button class="close-btn" id="close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="search-container">
+            <i class="search-icon fas fa-search"></i>
+            <input type="text" class="search-input" id="search-input" placeholder="Search locations...">
+        </div>
+        
+        <!-- Category Tabs -->
+        <div class="category-tabs">
+            <button class="category-tab active" data-category="favorites">
+                <i class="fas fa-star"></i> Favorites
+            </button>
+            <button class="category-tab" data-category="pois">
+                <i class="fas fa-map-marked-alt"></i> POIs
+            </button>
+            <button class="category-tab" data-category="recent">
+                <i class="fas fa-history"></i> Recent
+            </button>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="nav-menu-content">
+            
+            <!-- Current Location -->
+            <div class="current-location" id="current-location">
+                <div class="current-location-title">Current Location</div>
+                <div class="current-location-name" id="current-location-name">Vinewood Hills</div>
+                <div class="current-location-details" id="current-location-details">Elgin Avenue / Power Street</div>
+                <button class="add-favorite-btn" id="add-current-favorite">
+                    <i class="fas fa-plus"></i> Add to Favorites
+                </button>
+            </div>
+            
+            <!-- Favorites Content -->
+            <div class="category-content favorites-content active" id="favorites-content">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            
+            <!-- POIs Content -->
+            <div class="category-content pois-content" id="pois-content">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            
+            <!-- Recent Content -->
+            <div class="category-content recent-content" id="recent-content">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <script>
+        // Navigation Menu Manager
+        class NavigationMenuManager {
+            constructor() {
+                this.data = {
+                    currentLocation: {
+                        name: "Unknown",
+                        details: "Unknown Street"
+                    },
+                    favorites: [],
+                    pois: {
+                        businesses: [],
+                        government: [],
+                        medical: [],
+                        automotive: [],
+                        entertainment: [],
+                        shopping: [],
+                        services: []
+                    },
+                    recent: [],
+                    currentCategory: 'favorites',
+                    searchQuery: ''
+                };
+                
+                this.elements = {
+                    container: document.getElementById('nav-menu'),
+                    closeBtn: document.getElementById('close-btn'),
+                    searchInput: document.getElementById('search-input'),
+                    
+                    // Current location elements
+                    currentLocationName: document.getElementById('current-location-name'),
+                    currentLocationDetails: document.getElementById('current-location-details'),
+                    addCurrentFavoriteBtn: document.getElementById('add-current-favorite'),
+                    
+                    // Category elements
+                    categoryTabs: document.querySelectorAll('.category-tab'),
+                    favoritesContent: document.getElementById('favorites-content'),
+                    poisContent: document.getElementById('pois-content'),
+                    recentContent: document.getElementById('recent-content')
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                console.log('🧭 Navigation Menu Manager initialized');
+                
+                this.setupEventListeners();
+                this.setupMessageListener();
+                this.loadDefaultPOIs();
+                this.render();
+            }
+            
+            setupEventListeners() {
+                // Close button
+                this.elements.closeBtn.addEventListener('click', () => {
+                    this.closeMenu();
+                });
+                
+                // Search input
+                this.elements.searchInput.addEventListener('input', (e) => {
+                    this.handleSearch(e.target.value);
+                });
+                
+                // Category tabs
+                this.elements.categoryTabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        this.switchCategory(tab.dataset.category);
+                    });
+                });
+                
+                // Add current location to favorites
+                this.elements.addCurrentFavoriteBtn.addEventListener('click', () => {
+                    this.addCurrentLocationToFavorites();
+                });
+                
+                // ESC key to close
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.closeMenu();
+                    }
+                });
+            }
+            
+            setupMessageListener() {
+                window.addEventListener('message', (event) => {
+                    const { action, data } = event.data;
+                    
+                    switch (action) {
+                        case 'openMenu':
+                            this.loadMenuData(data);
+                            this.showMenu();
+                            break;
+                        case 'closeMenu':
+                            this.hideMenu();
+                            break;
+                        case 'currentLocationUpdate':
+                            this.updateCurrentLocation(data);
+                            break;
+                        case 'favoritesUpdated':
+                            this.updateFavorites(data);
+                            break;
+                        case 'poisUpdated':
+                            this.updatePOIs(data);
+                            break;
+                        case 'recentWaypointsUpdated':
+                            this.updateRecent(data);
+                            break;
+                    }
+                });
+            }
+            
+            loadDefaultPOIs() {
+                // Load default POI categories
+                this.data.pois = {
+                    businesses: [
+                        { id: 1, name: "Maze Bank", coords: {x: -75.0, y: -818.77, z: 243.38}, icon: "fas fa-building", category: "businesses" },
+                        { id: 2, name: "Diamond Casino", coords: {x: 925.0, y: 46.0, z: 81.0}, icon: "fas fa-dice", category: "businesses" },
+                        { id: 3, name: "Vanilla Unicorn", coords: {x: 129.0, y: -1299.0, z: 29.0}, icon: "fas fa-cocktail", category: "businesses" }
+                    ],
+                    government: [
+                        { id: 4, name: "City Hall", coords: {x: -544.0, y: -204.0, z: 38.0}, icon: "fas fa-landmark", category: "government" },
+                        { id: 5, name: "Police Station", coords: {x: 428.0, y: -982.0, z: 30.0}, icon: "fas fa-shield-alt", category: "government" },
+                        { id: 6, name: "Fire Station", coords: {x: 1193.0, y: -1464.0, z: 35.0}, icon: "fas fa-fire-extinguisher", category: "government" }
+                    ],
+                    medical: [
+                        { id: 7, name: "Central Medical", coords: {x: 295.0, y: -1448.0, z: 30.0}, icon: "fas fa-hospital", category: "medical" },
+                        { id: 8, name: "Sandy Shores Medical", coords: {x: 1839.0, y: 3672.0, z: 34.0}, icon: "fas fa-ambulance", category: "medical" }
+                    ],
+                    automotive: [
+                        { id: 9, name: "PDM Dealership", coords: {x: -56.0, y: -1096.0, z: 26.0}, icon: "fas fa-car", category: "automotive" },
+                        { id: 10, name: "Los Santos Customs", coords: {x: -362.0, y: -132.0, z: 38.0}, icon: "fas fa-tools", category: "automotive" }
+                    ],
+                    entertainment: [
+                        { id: 11, name: "Golf Club", coords: {x: -1368.0, y: 56.0, z: 54.0}, icon: "fas fa-golf-ball", category: "entertainment" },
+                        { id: 12, name: "Beach Pier", coords: {x: -1850.0, y: -1232.0, z: 13.0}, icon: "fas fa-umbrella-beach", category: "entertainment" }
+                    ],
+                    shopping: [
+                        { id: 13, name: "24/7 Supermarket", coords: {x: -3047.0, y: 585.0, z: 8.0}, icon: "fas fa-shopping-cart", category: "shopping" },
+                        { id: 14, name: "Clothing Store", coords: {x: 72.0, y: -1399.0, z: 29.0}, icon: "fas fa-tshirt", category: "shopping" }
+                    ],
+                    services: [
+                        { id: 15, name: "Bank ATM", coords: {x: 147.0, y: -1036.0, z: 29.0}, icon: "fas fa-credit-card", category: "services" },
+                        { id: 16, name: "Gas Station", coords: {x: 49.0, y: 2778.0, z: 58.0}, icon: "fas fa-gas-pump", category: "services" }
+                    ]
+                };
+            }
+            
+            switchCategory(category) {
+                this.data.currentCategory = category;
+                
+                // Update tab buttons
+                this.elements.categoryTabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.category === category);
+                });
+                
+                // Update content visibility
+                document.querySelectorAll('.category-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                
+                document.getElementById(category + '-content').classList.add('active');
+                
+                // Render current category content
+                this.renderCategory(category);
+            }
+            
+            handleSearch(query) {
+                this.data.searchQuery = query.toLowerCase();
+                
+                if (query.trim() === '') {
+                    // Show normal category content
+                    this.renderCategory(this.data.currentCategory);
+                } else {
+                    // Show search results
+                    this.renderSearchResults(query);
+                }
+            }
+            
+            renderSearchResults(query) {
+                const results = this.searchLocations(query);
+                const activeContent = document.querySelector('.category-content.active');
+                
+                if (results.length === 0) {
+                    activeContent.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-search"></i>
+                            <div class="empty-state-text">No results found</div>
+                            <div class="empty-state-subtext">Try a different search term</div>
+                        </div>
+                    `;
+                } else {
+                    activeContent.innerHTML = results.map(item => this.createLocationItem(item)).join('');
+                    this.attachLocationItemListeners(activeContent);
+                }
+            }
+            
+            searchLocations(query) {
+                const results = [];
+                
+                // Search favorites
+                this.data.favorites.forEach(item => {
+                    if (item.name.toLowerCase().includes(query)) {
+                        results.push({ ...item, type: 'favorite' });
+                    }
+                });
+                
+                // Search POIs
+                Object.values(this.data.pois).flat().forEach(item => {
+                    if (item.name.toLowerCase().includes(query)) {
+                        results.push({ ...item, type: 'poi' });
+                    }
+                });
+                
+                // Search recent
+                this.data.recent.forEach(item => {
+                    if (item.name.toLowerCase().includes(query)) {
+                        results.push({ ...item, type: 'recent' });
+                    }
+                });
+                
+                return results.slice(0, 20); // Limit to 20 results
+            }
+            
+            renderCategory(category) {
+                if (this.data.searchQuery) return; // Don't render if searching
+                
+                const content = document.getElementById(category + '-content');
+                let items = [];
+                
+                switch (category) {
+                    case 'favorites':
+                        items = this.data.favorites;
+                        break;
+                    case 'pois':
+                        items = Object.values(this.data.pois).flat();
+                        break;
+                    case 'recent':
+                        items = this.data.recent;
+                        break;
+                }
+                
+                if (items.length === 0) {
+                    const emptyMessages = {
+                        favorites: { icon: 'fas fa-star', text: 'No favorites yet', subtext: 'Add locations to your favorites' },
+                        pois: { icon: 'fas fa-map-marked-alt', text: 'No POIs available', subtext: 'Points of interest will appear here' },
+                        recent: { icon: 'fas fa-history', text: 'No recent waypoints', subtext: 'Your recent destinations will appear here' }
+                    };
+                    
+                    const msg = emptyMessages[category];
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <i class="${msg.icon}"></i>
+                            <div class="empty-state-text">${msg.text}</div>
+                            <div class="empty-state-subtext">${msg.subtext}</div>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = items.map(item => this.createLocationItem(item)).join('');
+                    this.attachLocationItemListeners(content);
+                }
+            }
+            
+            createLocationItem(item) {
+                const distance = this.calculateDistance(item.coords);
+                const distanceText = distance < 1000 ? `${Math.floor(distance)}m` : `${(distance/1000).toFixed(1)}km`;
+                
+                return `
+                    <div class="location-item" data-coords="${JSON.stringify(item.coords).replace(/"/g, '&quot;')}" data-name="${item.name}" data-id="${item.id}">
+                        <div class="location-icon">
+                            <i class="${item.icon || 'fas fa-map-marker-alt'}"></i>
+                        </div>
+                        <div class="location-info">
+                            <div class="location-name">${item.name}</div>
+                            <div class="location-details">${item.category || item.type || 'Location'} • ${item.dateAdded || 'Recently added'}</div>
+                        </div>
+                        <div class="location-distance">${distanceText}</div>
+                        <div class="location-actions">
+                            <button class="action-btn waypoint-btn" title="Set Waypoint">
+                                <i class="fas fa-location-arrow"></i>
+                            </button>
+                            ${this.data.currentCategory === 'favorites' ? `
+                                <button class="action-btn remove-btn" title="Remove">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            attachLocationItemListeners(container) {
+                // Set waypoint listeners
+                container.querySelectorAll('.waypoint-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const item = e.target.closest('.location-item');
+                        const coords = JSON.parse(item.dataset.coords);
+                        const name = item.dataset.name;
+                        this.setWaypoint(coords, name);
+                    });
+                });
+                
+                // Remove favorite listeners
+                container.querySelectorAll('.remove-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const item = e.target.closest('.location-item');
+                        const id = parseInt(item.dataset.id);
+                        this.removeFavorite(id);
+                    });
+                });
+                
+                // Location item click listeners
+                container.querySelectorAll('.location-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const coords = JSON.parse(item.dataset.coords);
+                        const name = item.dataset.name;
+                        this.setWaypoint(coords, name);
+                    });
+                });
+            }
+            
+            calculateDistance(coords) {
+                // Simple distance calculation (would use actual player position in real implementation)
+                return Math.random() * 5000; // Mock distance
+            }
+            
+            setWaypoint(coords, name) {
+                // Send to FiveM
+                this.sendToFiveM('navmenu:setWaypoint', { coords: coords, name: name });
+                
+                // Add to recent if not already there
+                const existingIndex = this.data.recent.findIndex(item => item.name === name);
+                if (existingIndex === -1) {
+                    this.data.recent.unshift({
+                        id: Date.now(),
+                        name: name,
+                        coords: coords,
+                        timestamp: Date.now(),
+                        date: new Date().toLocaleString()
+                    });
+                    
+                    // Keep only last 10 recent
+                    if (this.data.recent.length > 10) {
+                        this.data.recent = this.data.recent.slice(0, 10);
+                    }
+                }
+                
+                // Close menu after setting waypoint
+                this.closeMenu();
+            }
+            
+            addCurrentLocationToFavorites() {
+                const name = prompt('Enter a name for this favorite:') || 'Custom Location';
+                
+                this.sendToFiveM('navmenu:saveCurrentLocation', { name: name });
+            }
+            
+            removeFavorite(id) {
+                this.sendToFiveM('navmenu:removeFavorite', { id: id });
+            }
+            
+            updateCurrentLocation(data) {
+                if (data) {
+                    this.data.currentLocation = data;
+                    this.elements.currentLocationName.textContent = data.name || 'Unknown';
+                    this.elements.currentLocationDetails.textContent = data.zone || 'Unknown Street';
+                }
+            }
+            
+            updateFavorites(favorites) {
+                this.data.favorites = favorites || [];
+                if (this.data.currentCategory === 'favorites') {
+                    this.renderCategory('favorites');
+                }
+            }
+            
+            updatePOIs(pois) {
+                this.data.pois = pois || this.data.pois;
+                if (this.data.currentCategory === 'pois') {
+                    this.renderCategory('pois');
+                }
+            }
+            
+            updateRecent(recent) {
+                this.data.recent = recent || [];
+                if (this.data.currentCategory === 'recent') {
+                    this.renderCategory('recent');
+                }
+            }
+            
+            loadMenuData(data) {
+                if (data) {
+                    Object.assign(this.data, data);
+                    this.render();
+                }
+            }
+            
+            showMenu() {
+                this.elements.container.classList.remove('hidden');
+                this.elements.searchInput.focus();
+            }
+            
+            hideMenu() {
+                this.elements.container.classList.add('hidden');
+                this.elements.searchInput.value = '';
+                this.data.searchQuery = '';
+            }
+            
+            closeMenu() {
+                this.hideMenu();
+                this.sendToFiveM('navmenu:toggleMenu', {});
+            }
+            
+            sendToFiveM(action, data) {
+                fetch(`https://${this.getResourceName()}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data || {})
+                }).catch(() => {
+                    // Ignore fetch errors in development
+                });
+            }
+            
+            getResourceName() {
+                return window.GetParentResourceName ? GetParentResourceName() : 'qb-hud';
+            }
+            
+            render() {
+                this.updateCurrentLocation(this.data.currentLocation);
+                this.renderCategory(this.data.currentCategory);
+                
+                console.log('🧭 Navigation Menu rendered');
+            }
+        }
+        
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.navigationMenuManager = new NavigationMenuManager();
+        });
+        
+        // Fallback for immediate execution
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!window.navigationMenuManager) {
+                    window.navigationMenuManager = new NavigationMenuManager();
+                }
+            });
+        } else {
+            window.navigationMenuManager = new NavigationMenuManager();
+        }
+    </script>
+</body>
+</html>

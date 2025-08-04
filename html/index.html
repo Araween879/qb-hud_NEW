@@ -1,107 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="neon-magenta">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QBCore HUD - Neon Interface</title>
+    <title>QBCore HUD - Container</title>
     
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Neon Design-DNA Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
     
     <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- Main Stylesheet -->
+    <!-- Container Styles -->
     <style>
-        /* ================================================================
-           DESIGN-DNA IMPLEMENTATION - NEON SYSTEM
-           ================================================================ */
-        
-        :root {
-            /* Primary Color Scheme - Neon Magenta */
-            --primary: #B026FF;
-            --secondary: #0ff;
-            --accent: #FFD700;
-            --background: #1a1a1a;
-            --background-dark: #111;
-            --text-primary: #fff;
-            --text-secondary: #e0e0e0;
-            
-            /* Status Colors */
-            --health: #ff4444;
-            --armor: #00bcd4;
-            --hunger: #ffb74d;
-            --thirst: #29b6f6;
-            --stress: #a020f0;
-            --stamina: #66bb6a;
-            
-            /* Glow Effects */
-            --glow-primary: 0 0 15px rgba(176, 38, 255, 0.4);
-            --glow-secondary: 0 0 15px rgba(0, 255, 255, 0.4);
-            --glow-health: 0 0 10px rgba(255, 68, 68, 0.4);
-            --glow-armor: 0 0 10px rgba(0, 188, 212, 0.4);
-            
-            /* Animation Settings */
-            --transition-speed: 0.3s;
-            --scan-duration: 6s;
-            --hover-scale: 1.05;
-            --hover-translate: -2px;
-            
-            /* Layout */
-            --border-radius: 12px;
-            --padding: 8px 12px;
-            --margin: 12px;
-            --shadow: 0 20px 80px rgba(0, 0, 0, 0.9);
-        }
-        
-        /* Theme Variations */
-        .theme-neon-cyan {
-            --primary: #0ff;
-            --secondary: #B026FF;
-            --glow-primary: 0 0 15px rgba(0, 255, 255, 0.4);
-            --glow-secondary: 0 0 15px rgba(176, 38, 255, 0.4);
-        }
-        
-        .theme-synthwave {
-            --primary: #ff0080;
-            --secondary: #00ffff;
-            --accent: #ffff00;
-            --background: #1a0a1a;
-            --background-dark: #110511;
-        }
-        
-        .theme-classic {
-            --primary: #007acc;
-            --secondary: #666;
-            --accent: #ffa500;
-            --background: #2d2d2d;
-            --background-dark: #1e1e1e;
-        }
-        
-        /* ================================================================
-           BASE RESET & LAYOUT
-           ================================================================ */
-        
-        *, *::before, *::after {
-            box-sizing: border-box;
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
         
-        html, body {
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            font-family: 'Orbitron', sans-serif;
+        body {
+            font-family: 'Orbitron', 'Roboto', sans-serif;
             background: transparent;
+            overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
-            color: var(--text-primary);
-            font-size: 14px;
-            line-height: 1.4;
         }
         
-        #hud-container {
+        .container {
             position: fixed;
             top: 0;
             left: 0;
@@ -109,764 +36,408 @@
             height: 100vh;
             pointer-events: none;
             z-index: 1000;
-            font-weight: 400;
-            letter-spacing: 1px;
         }
         
-        #hud-container * {
+        /* Module Container Positioning */
+        .module-container {
+            position: absolute;
             pointer-events: auto;
         }
         
-        /* ================================================================
-           MODULE POSITIONING SYSTEM
-           ================================================================ */
-        
-        .module {
-            position: absolute;
-            transition: all var(--transition-speed) ease;
-            z-index: 1001;
-            opacity: 1;
-            transform: scale(1);
+        /* HUD Core positioning (bottom-left) */
+        .hud-core-container {
+            bottom: 20px;
+            left: 20px;
         }
         
-        .module.hidden {
-            opacity: 0;
-            transform: scale(0.8);
-            pointer-events: none;
+        /* GPS Navigation positioning (bottom-right) */
+        .gps-navigation-container {
+            bottom: 20px;
+            right: 20px;
         }
         
-        .module.visible {
-            opacity: 1;
-            transform: scale(1);
-        }
-        
-        /* Position Classes */
-        .pos-top-left { top: 20px; left: 20px; }
-        .pos-top-center { top: 20px; left: 50%; transform: translateX(-50%); }
-        .pos-top-right { top: 20px; right: 20px; }
-        .pos-middle-left { top: 50%; left: 20px; transform: translateY(-50%); }
-        .pos-middle-center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
-        .pos-middle-right { top: 50%; right: 20px; transform: translateY(-50%); }
-        .pos-bottom-left { bottom: 20px; left: 20px; }
-        .pos-bottom-center { bottom: 20px; left: 50%; transform: translateX(-50%); }
-        .pos-bottom-right { bottom: 20px; right: 20px; }
-        
-        /* ================================================================
-           NEON UI COMPONENTS
-           ================================================================ */
-        
-        .neon-panel {
-            background: linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(17, 17, 17, 0.95));
-            border: 2px solid var(--primary);
-            border-radius: var(--border-radius);
-            box-shadow: var(--glow-primary), var(--shadow);
-            backdrop-filter: blur(10px);
-            padding: var(--padding);
-            transition: all var(--transition-speed) ease;
-        }
-        
-        .neon-panel:hover {
-            transform: translateY(var(--hover-translate)) scale(var(--hover-scale));
-            box-shadow: 0 0 25px rgba(176, 38, 255, 0.6), var(--shadow);
-        }
-        
-        .neon-text {
-            color: var(--primary);
-            text-shadow: 0 0 10px var(--primary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 700;
-        }
-        
-        .neon-glow {
-            box-shadow: var(--glow-primary);
-        }
-        
-        /* Scanning Animation */
-        .scan-line {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: -100%;
-            width: 2px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            animation: scan var(--scan-duration) infinite;
-            z-index: 10;
-        }
-        
-        @keyframes scan {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-        
-        /* Status Bar System */
-        .status-bar {
-            position: relative;
-            height: 6px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 3px;
-            overflow: hidden;
-            margin: 4px 0;
-        }
-        
-        .status-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            border-radius: 3px;
-            transition: width var(--transition-speed) ease;
-            box-shadow: 0 0 6px rgba(176, 38, 255, 0.5);
-        }
-        
-        /* Icon Styles */
-        .status-icon {
-            font-size: 16px;
-            margin-right: 8px;
-            filter: drop-shadow(0 0 4px currentColor);
-            transition: all var(--transition-speed) ease;
-        }
-        
-        .status-icon:hover {
-            transform: scale(1.1);
-            filter: drop-shadow(0 0 8px currentColor);
-        }
-        
-        /* Color Variants */
-        .health-color { color: var(--health); }
-        .armor-color { color: var(--armor); }
-        .hunger-color { color: var(--hunger); }
-        .thirst-color { color: var(--thirst); }
-        .stress-color { color: var(--stress); }
-        .stamina-color { color: var(--stamina); }
-        
-        /* Pulse Animation for Low Values */
-        .pulse-warning {
-            animation: pulse-glow 1.5s infinite;
-        }
-        
-        @keyframes pulse-glow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-        
-        /* ================================================================
-           GPS HUD SPECIFIC STYLES
-           ================================================================ */
-        
-        #gps-hud {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            min-width: 200px;
-        }
-        
-        .status-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 6px 8px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            border-left: 3px solid var(--primary);
-        }
-        
-        .status-value {
-            font-family: 'Roboto', sans-serif;
-            font-weight: 500;
-            min-width: 40px;
-            text-align: right;
-        }
-        
-        /* Voice Indicator */
-        .voice-indicator {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 4px 8px;
-            border-radius: 6px;
-        }
-        
-        .voice-level {
-            display: flex;
-            gap: 2px;
-        }
-        
-        .voice-dot {
-            width: 4px;
-            height: 12px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 2px;
-            transition: background var(--transition-speed) ease;
-        }
-        
-        .voice-dot.active {
-            background: var(--primary);
-            box-shadow: 0 0 4px var(--primary);
-        }
-        
-        /* ================================================================
-           TIME & LOCATION MODULES
-           ================================================================ */
-        
-        #time-module {
-            text-align: center;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--primary);
-            border-radius: 8px;
-            padding: 8px 16px;
-            box-shadow: var(--glow-primary);
-        }
-        
-        .time-display {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--primary);
-            text-shadow: 0 0 8px var(--primary);
-        }
-        
-        .date-display {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 2px;
-        }
-        
-        #location-module {
-            text-align: center;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--secondary);
-            border-radius: 8px;
-            padding: 8px 16px;
-            box-shadow: var(--glow-secondary);
-        }
-        
-        .location-text {
-            color: var(--secondary);
-            text-shadow: 0 0 6px var(--secondary);
-            font-weight: 500;
-        }
-        
-        /* ================================================================
-           SETTINGS MENU
-           ================================================================ */
-        
-        #settings-menu {
-            position: fixed;
+        /* Settings Menu positioning (center) */
+        .hud-settings-container {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: linear-gradient(145deg, rgba(26, 26, 26, 0.98), rgba(17, 17, 17, 0.98));
-            border: 2px solid var(--primary);
-            border-radius: var(--border-radius);
-            box-shadow: 0 0 30px rgba(176, 38, 255, 0.6), var(--shadow);
-            backdrop-filter: blur(15px);
-            padding: 20px;
-            min-width: 400px;
-            max-width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            z-index: 2000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all var(--transition-speed) ease;
         }
         
-        #settings-menu.visible {
-            opacity: 1;
-            visibility: visible;
+        /* Navigation Menu positioning (center-left) */
+        .nav-menu-container {
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
         }
         
-        .settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--primary);
+        /* Module iframes */
+        .module-iframe {
+            border: none;
+            background: transparent;
+            width: 100%;
+            height: 100%;
         }
         
-        .settings-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--primary);
-            text-shadow: 0 0 10px var(--primary);
+        /* Hidden by default */
+        .hidden {
+            display: none !important;
         }
         
-        .close-button {
-            background: none;
-            border: 1px solid var(--primary);
-            color: var(--primary);
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all var(--transition-speed) ease;
+        /* Debug overlay (only in debug mode) */
+        .debug-overlay {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0ff;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'Roboto', monospace;
+            font-size: 12px;
+            z-index: 9999;
+            display: none;
         }
         
-        .close-button:hover {
-            background: var(--primary);
-            color: var(--background);
-            box-shadow: 0 0 15px var(--primary);
-        }
-        
-        /* ================================================================
-           RESPONSIVE DESIGN
-           ================================================================ */
-        
-        @media (max-width: 1920px) {
-            .module { transform: scale(0.9); }
-        }
-        
-        @media (max-width: 1366px) {
-            .module { transform: scale(0.8); }
-            #hud-container { font-size: 12px; }
-        }
-        
-        @media (max-width: 1024px) {
-            .module { transform: scale(0.7); }
-            .pos-top-left, .pos-middle-left, .pos-bottom-left { left: 10px; }
-            .pos-top-right, .pos-middle-right, .pos-bottom-right { right: 10px; }
-        }
-        
-        /* ================================================================
-           ANIMATIONS & EFFECTS
-           ================================================================ */
-        
-        .fade-in {
-            animation: fadeIn var(--transition-speed) ease;
-        }
-        
-        .fade-out {
-            animation: fadeOut var(--transition-speed) ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes fadeOut {
-            from { opacity: 1; transform: translateY(0); }
-            to { opacity: 0; transform: translateY(-20px); }
-        }
-        
-        .glow-pulse {
-            animation: glowPulse 2s infinite;
-        }
-        
-        @keyframes glowPulse {
-            0%, 100% { box-shadow: var(--glow-primary); }
-            50% { box-shadow: 0 0 25px rgba(176, 38, 255, 0.8); }
-        }
-        
-        /* Disable animations on low-end mode */
-        .low-end-mode * {
-            animation: none !important;
-            transition: none !important;
-            box-shadow: none !important;
-            text-shadow: none !important;
+        .debug-overlay.active {
+            display: block;
         }
     </style>
 </head>
-<body class="theme-neon-magenta">
-    <div id="hud-container">
-        <!-- GPS HUD Module (Main Interface) -->
-        <div id="gps-hud" class="module pos-bottom-left neon-panel visible">
-            <div class="scan-line"></div>
-            
-            <!-- Voice Indicator -->
-            <div class="status-row">
-                <div class="voice-indicator">
-                    <i class="fas fa-microphone status-icon"></i>
-                    <div class="voice-level">
-                        <div class="voice-dot"></div>
-                        <div class="voice-dot"></div>
-                        <div class="voice-dot"></div>
-                        <div class="voice-dot active"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Health Status -->
-            <div class="status-row">
-                <i class="fas fa-heart status-icon health-color"></i>
-                <div class="status-bar">
-                    <div class="status-fill health-color" style="width: 100%;"></div>
-                </div>
-                <span class="status-value">100</span>
-            </div>
-            
-            <!-- Armor Status -->
-            <div class="status-row">
-                <i class="fas fa-shield-alt status-icon armor-color"></i>
-                <div class="status-bar">
-                    <div class="status-fill armor-color" style="width: 0%;"></div>
-                </div>
-                <span class="status-value">0</span>
-            </div>
-            
-            <!-- Hunger Status -->
-            <div class="status-row">
-                <i class="fas fa-hamburger status-icon hunger-color"></i>
-                <div class="status-bar">
-                    <div class="status-fill hunger-color" style="width: 100%;"></div>
-                </div>
-                <span class="status-value">100</span>
-            </div>
-            
-            <!-- Thirst Status -->
-            <div class="status-row">
-                <i class="fas fa-tint status-icon thirst-color"></i>
-                <div class="status-bar">
-                    <div class="status-fill thirst-color" style="width: 100%;"></div>
-                </div>
-                <span class="status-value">100</span>
-            </div>
-            
-            <!-- Stress Status -->
-            <div class="status-row">
-                <i class="fas fa-brain status-icon stress-color"></i>
-                <div class="status-bar">
-                    <div class="status-fill stress-color" style="width: 0%;"></div>
-                </div>
-                <span class="status-value">0</span>
-            </div>
-            
-            <!-- Stamina Status -->
-            <div class="status-row">
-                <i class="fas fa-running status-icon stamina-color"></i>
-                <div class="status-bar">
-                    <div class="status-fill stamina-color" style="width: 100%;"></div>
-                </div>
-                <span class="status-value">100</span>
-            </div>
+<body>
+    <!-- Main Container -->
+    <div class="container" id="hud-container">
+        
+        <!-- HUD Core Module Container (Status-Balken) -->
+        <div class="module-container hud-core-container" id="hud-core-container">
+            <iframe class="module-iframe" 
+                    id="hud-core-iframe" 
+                    src="hud-core.html"
+                    scrolling="no">
+            </iframe>
         </div>
         
-        <!-- Time Module -->
-        <div id="time-module" class="module pos-top-right visible">
-            <div class="time-display">00:00</div>
-            <div class="date-display">Monday, January 1st</div>
+        <!-- GPS Navigation Module Container -->
+        <div class="module-container gps-navigation-container" id="gps-navigation-container">
+            <iframe class="module-iframe" 
+                    id="gps-navigation-iframe" 
+                    src="gps-hud.html"
+                    scrolling="no">  
+            </iframe>
         </div>
         
-        <!-- Location Module -->
-        <div id="location-module" class="module pos-top-center visible">
-            <div class="location-text">Loading Location...</div>
+        <!-- Settings Menu Module Container -->
+        <div class="module-container hud-settings-container hidden" id="hud-settings-container">
+            <iframe class="module-iframe" 
+                    id="hud-settings-iframe" 
+                    src="hud-settings.html"
+                    scrolling="no">
+            </iframe>
         </div>
         
-        <!-- Vehicle Module (hidden by default) -->
-        <div id="vehicle-module" class="module pos-bottom-right neon-panel hidden">
-            <div class="scan-line"></div>
-            <!-- Vehicle content will be dynamically loaded -->
+        <!-- Navigation Menu Module Container -->
+        <div class="module-container nav-menu-container hidden" id="nav-menu-container">
+            <iframe class="module-iframe" 
+                    id="nav-menu-iframe" 
+                    src="nav-menu.html"
+                    scrolling="no">
+            </iframe>
+        </div>
+        
+    </div>
+    
+    <!-- Debug Overlay (only shown in debug mode) -->
+    <div class="debug-overlay" id="debug-overlay">
+        <div class="debug-title">🔧 HUD DEBUG</div>
+        <div class="debug-info">
+            <div>Theme: <span id="debug-theme">neon-magenta</span></div>
+            <div>Active Modules: <span id="debug-modules">0</span></div>
+            <div>FPS: <span id="debug-fps">--</span></div>
+            <div>Performance: <span id="debug-performance">OK</span></div>
         </div>
     </div>
     
-    <!-- Settings Menu -->
-    <div id="settings-menu" class="hidden">
-        <div class="settings-header">
-            <h2 class="settings-title neon-text">HUD SETTINGS</h2>
-            <button id="close-settings" class="close-button">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div class="settings-content">
-            <!-- Settings content will be dynamically loaded -->
-            <p class="neon-text">Settings interface loading...</p>
-        </div>
-    </div>
-    
-    <!-- Main JavaScript -->
+    <!-- Container JavaScript -->
     <script>
-        // ================================================================
-        // MAIN HUD CONTROLLER
-        // ================================================================
-        
-        class HUDController {
+        // Container Management System
+        class HUDContainer {
             constructor() {
-                this.initialized = false;
                 this.modules = new Map();
-                this.theme = 'neon-magenta';
-                this.settings = {
-                    theme: 'neon-magenta',
-                    modules: {},
-                    ui: {
-                        scaling: 1.0,
-                        opacity: 0.9,
-                        animations: true,
-                        glowEffects: true
-                    }
-                };
+                this.debugMode = false;
+                this.currentTheme = 'neon-magenta';
+                this.scaling = 1.0;
+                this.opacity = 0.9;
                 
                 this.init();
             }
             
             init() {
-                console.log('🎮 Initializing HUD Controller...');
+                console.log('🚀 HUD Container initialized');
                 
-                // Setup event listeners
-                this.setupEventListeners();
+                // Register modules
+                this.registerModule('hud_core', document.getElementById('hud-core-container'));
+                this.registerModule('gps_navigation', document.getElementById('gps-navigation-container'));
+                this.registerModule('hud_settings', document.getElementById('hud-settings-container'));
+                this.registerModule('nav_menu', document.getElementById('nav-menu-container'));
                 
-                // Initialize modules
-                this.initializeModules();
+                // Setup message listeners
+                this.setupMessageListeners();
                 
-                // Setup settings menu
-                this.setupSettingsMenu();
-                
-                // Start update loops
-                this.startUpdateLoop();
-                
-                this.initialized = true;
-                console.log('✅ HUD Controller initialized');
+                // Setup debug mode
+                this.setupDebugMode();
             }
             
-            setupEventListeners() {
-                // Message handler for FiveM communication
-                window.addEventListener('message', (event) => {
-                    this.handleMessage(event.data);
+            registerModule(name, container) {
+                if (!container) {
+                    console.warn(`Module container not found: ${name}`);
+                    return;
+                }
+                
+                this.modules.set(name, {
+                    name: name,
+                    container: container,
+                    iframe: container.querySelector('.module-iframe'),
+                    visible: !container.classList.contains('hidden'),
+                    initialized: false
                 });
                 
-                // Keyboard shortcuts
-                document.addEventListener('keydown', (event) => {
-                    switch(event.key) {
-                        case 'Escape':
-                            this.hideSettingsMenu();
-                            break;
-                        case 'F2':
-                            this.toggleHUD();
-                            break;
+                console.log(`📦 Module registered: ${name}`);
+            }
+            
+            setupMessageListeners() {
+                // Listen for messages from FiveM
+                window.addEventListener('message', (event) => {
+                    const { module, action, data } = event.data;
+                    
+                    if (module && this.modules.has(module)) {
+                        this.handleModuleMessage(module, action, data);
+                    } else {
+                        // Global container messages
+                        this.handleContainerMessage(event.data);
                     }
                 });
                 
-                // Prevent context menu
-                document.addEventListener('contextmenu', (e) => e.preventDefault());
+                // Listen for messages from module iframes
+                this.modules.forEach((moduleData, moduleName) => {
+                    if (moduleData.iframe && moduleData.iframe.contentWindow) {
+                        moduleData.iframe.contentWindow.addEventListener('message', (event) => {
+                            // Forward module messages to FiveM
+                            if (event.data.action && event.data.action.startsWith(moduleName + ':')) {
+                                this.sendToFiveM(event.data);
+                            }
+                        });
+                    }
+                });
             }
             
-            handleMessage(data) {
-                if (!data || !data.action) return;
+            handleModuleMessage(module, action, data) {
+                const moduleData = this.modules.get(module);
+                if (!moduleData) return;
                 
-                switch(data.action) {
-                    case 'updateStatus':
-                        this.updateStatus(data.module, data.data);
+                switch (action) {
+                    case 'setVisible':
+                        this.setModuleVisible(module, data.visible);
                         break;
                     case 'setTheme':
-                        this.setTheme(data.theme);
+                        this.setModuleTheme(module, data.theme);
                         break;
-                    case 'toggleModule':
-                        this.toggleModule(data.module, data.visible);
+                    case 'setPosition':
+                        this.setModulePosition(module, data.position);
                         break;
-                    case 'updateTime':
-                        this.updateTime(data.time);
-                        break;
-                    case 'updateLocation':
-                        this.updateLocation(data.location);
-                        break;
-                    case 'showSettings':
-                        this.showSettingsMenu();
-                        break;
-                    case 'hideSettings':
-                        this.hideSettingsMenu();
+                    default:
+                        // Forward to module iframe
+                        this.sendToModule(module, action, data);
                         break;
                 }
             }
             
-            updateStatus(module, data) {
-                switch(module) {
-                    case 'health':
-                        this.updateHealthBar(data);
+            handleContainerMessage(data) {
+                switch (data.action) {
+                    case 'setTheme':
+                        this.setGlobalTheme(data.theme);
                         break;
-                    case 'voice':
-                        this.updateVoiceIndicator(data);
+                    case 'setScaling':
+                        this.setGlobalScaling(data.scaling);
                         break;
-                    // Add more status updates as needed
+                    case 'setOpacity':
+                        this.setGlobalOpacity(data.opacity);
+                        break;
+                    case 'toggleDebug':
+                        this.toggleDebugMode();
+                        break;
+                    case 'hideAll':
+                        this.hideAllModules();
+                        break;
+                    case 'showAll':
+                        this.showAllModules();
+                        break;
                 }
             }
             
-            updateHealthBar(data) {
-                if (data.health !== undefined) {
-                    const healthBar = document.querySelector('.health-color.status-fill');
-                    const healthValue = document.querySelector('.status-row:has(.fa-heart) .status-value');
-                    
-                    if (healthBar && healthValue) {
-                        healthBar.style.width = data.health + '%';
-                        healthValue.textContent = Math.round(data.health);
-                        
-                        // Add warning pulse for low health
-                        const row = healthBar.closest('.status-row');
-                        if (data.health < 25) {
-                            row.classList.add('pulse-warning');
-                        } else {
-                            row.classList.remove('pulse-warning');
-                        }
-                    }
-                }
+            setModuleVisible(moduleName, visible) {
+                const moduleData = this.modules.get(moduleName);
+                if (!moduleData) return;
                 
-                // Update other health-related stats similarly
-                ['armor', 'hunger', 'thirst', 'stress', 'stamina'].forEach(stat => {
-                    if (data[stat] !== undefined) {
-                        const bar = document.querySelector(`.${stat}-color.status-fill`);
-                        const value = document.querySelector(`.status-row:has(.fa-${this.getIconClass(stat)}) .status-value`);
-                        
-                        if (bar && value) {
-                            bar.style.width = data[stat] + '%';
-                            value.textContent = Math.round(data[stat]);
-                        }
-                    }
-                });
-            }
-            
-            updateVoiceIndicator(data) {
-                const voiceDots = document.querySelectorAll('.voice-dot');
-                const level = data.level || 2;
-                
-                voiceDots.forEach((dot, index) => {
-                    if (index < level) {
-                        dot.classList.add('active');
-                    } else {
-                        dot.classList.remove('active');
-                    }
-                });
-                
-                // Update talking state
-                const voiceIcon = document.querySelector('.voice-indicator .fas');
-                if (data.talking) {
-                    voiceIcon.style.color = 'var(--primary)';
-                    voiceIcon.style.animation = 'glowPulse 0.5s infinite';
+                if (visible) {
+                    moduleData.container.classList.remove('hidden');
                 } else {
-                    voiceIcon.style.color = '';
-                    voiceIcon.style.animation = '';
-                }
-            }
-            
-            updateTime(timeData) {
-                const timeDisplay = document.querySelector('.time-display');
-                const dateDisplay = document.querySelector('.date-display');
-                
-                if (timeDisplay && timeData.formatted) {
-                    timeDisplay.textContent = timeData.formatted;
+                    moduleData.container.classList.add('hidden');
                 }
                 
-                if (dateDisplay && timeData.date) {
-                    dateDisplay.textContent = timeData.date;
-                }
-            }
-            
-            updateLocation(locationData) {
-                const locationText = document.querySelector('.location-text');
+                moduleData.visible = visible;
                 
-                if (locationText && locationData.text) {
-                    locationText.textContent = locationData.text;
-                }
+                this.updateDebugInfo();
+                console.log(`👁️ Module ${moduleName} visibility: ${visible}`);
             }
             
-            setTheme(themeName) {
-                if (!themeName) return;
+            setModuleTheme(moduleName, theme) {
+                this.sendToModule(moduleName, 'setTheme', { theme: theme });
+            }
+            
+            setGlobalTheme(theme) {
+                this.currentTheme = theme;
+                document.documentElement.setAttribute('data-theme', theme);
                 
-                document.body.className = `theme-${themeName}`;
-                this.theme = themeName;
-                this.settings.theme = themeName;
+                // Apply to all modules
+                this.modules.forEach((moduleData, moduleName) => {
+                    this.setModuleTheme(moduleName, theme);
+                });
                 
-                console.log(`🎨 Theme changed to: ${themeName}`);
+                this.updateDebugInfo();
+                console.log(`🎨 Global theme changed to: ${theme}`);
             }
             
-            toggleModule(moduleName, visible) {
-                const module = document.getElementById(`${moduleName}-module`) || 
-                              document.getElementById(moduleName);
+            setGlobalScaling(scaling) {
+                this.scaling = scaling;
                 
-                if (module) {
-                    if (visible) {
-                        module.classList.remove('hidden');
-                        module.classList.add('visible', 'fade-in');
-                    } else {
-                        module.classList.add('hidden');
-                        module.classList.remove('visible');
-                    }
-                }
-            }
-            
-            toggleHUD() {
-                const hudContainer = document.getElementById('hud-container');
-                if (hudContainer) {
-                    hudContainer.style.display = hudContainer.style.display === 'none' ? 'block' : 'none';
-                }
-            }
-            
-            showSettingsMenu() {
-                const menu = document.getElementById('settings-menu');
-                if (menu) {
-                    menu.classList.remove('hidden');
-                    menu.classList.add('visible', 'fade-in');
-                }
-            }
-            
-            hideSettingsMenu() {
-                const menu = document.getElementById('settings-menu');
-                if (menu) {
-                    menu.classList.add('hidden');
-                    menu.classList.remove('visible');
-                }
-            }
-            
-            setupSettingsMenu() {
-                const closeBtn = document.getElementById('close-settings');
-                if (closeBtn) {
-                    closeBtn.addEventListener('click', () => this.hideSettingsMenu());
-                }
-            }
-            
-            initializeModules() {
-                // Register modules
-                this.modules.set('gps-hud', document.getElementById('gps-hud'));
-                this.modules.set('time', document.getElementById('time-module'));
-                this.modules.set('location', document.getElementById('location-module'));
-                this.modules.set('vehicle', document.getElementById('vehicle-module'));
+                const container = document.getElementById('hud-container');
+                container.style.transform = `scale(${scaling})`;
+                container.style.transformOrigin = 'center center';
                 
-                console.log(`📦 Registered ${this.modules.size} modules`);
+                console.log(`📏 Global scaling set to: ${scaling}`);
             }
             
-            startUpdateLoop() {
-                // Update time every second
-                setInterval(() => {
-                    const now = new Date();
-                    const timeData = {
-                        formatted: now.toLocaleTimeString('en-US', { 
-                            hour12: false, 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                        }),
-                        date: now.toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            month: 'long', 
-                            day: 'numeric' 
-                        })
-                    };
-                    this.updateTime(timeData);
+            setGlobalOpacity(opacity) {
+                this.opacity = opacity;
+                
+                const container = document.getElementById('hud-container');
+                container.style.opacity = opacity;
+                
+                console.log(`👁️ Global opacity set to: ${opacity}`);
+            }
+            
+            sendToModule(moduleName, action, data) {
+                const moduleData = this.modules.get(moduleName);
+                if (!moduleData || !moduleData.iframe || !moduleData.iframe.contentWindow) return;
+                
+                moduleData.iframe.contentWindow.postMessage({
+                    action: action,
+                    data: data
+                }, '*');
+            }
+            
+            sendToFiveM(data) {
+                // Send message back to FiveM
+                fetch(`https://${GetParentResourceName ? GetParentResourceName() : 'qb-hud'}/${data.action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data.data || {})
+                }).catch(() => {
+                    // Ignore fetch errors in development
+                });
+            }
+            
+            hideAllModules() {
+                this.modules.forEach((moduleData, moduleName) => {
+                    this.setModuleVisible(moduleName, false);
+                });
+            }
+            
+            showAllModules() {
+                this.modules.forEach((moduleData, moduleName) => {
+                    this.setModuleVisible(moduleName, true);
+                });
+            }
+            
+            setupDebugMode() {
+                // Check for debug mode from URL or message
+                if (window.location.search.includes('debug=true')) {
+                    this.toggleDebugMode();
+                }
+            }
+            
+            toggleDebugMode() {
+                this.debugMode = !this.debugMode;
+                
+                const debugOverlay = document.getElementById('debug-overlay');
+                if (this.debugMode) {
+                    debugOverlay.classList.add('active');
+                    this.startDebugMonitoring();
+                } else {
+                    debugOverlay.classList.remove('active');
+                    this.stopDebugMonitoring();
+                }
+                
+                console.log(`🔧 Debug mode: ${this.debugMode ? 'ON' : 'OFF'}`);
+            }
+            
+            startDebugMonitoring() {
+                this.debugInterval = setInterval(() => {
+                    this.updateDebugInfo();
                 }, 1000);
             }
             
-            getIconClass(stat) {
-                const iconMap = {
-                    health: 'heart',
-                    armor: 'shield-alt',
-                    hunger: 'hamburger',
-                    thirst: 'tint',
-                    stress: 'brain',
-                    stamina: 'running'
-                };
-                return iconMap[stat] || stat;
+            stopDebugMonitoring() {
+                if (this.debugInterval) {
+                    clearInterval(this.debugInterval);
+                    this.debugInterval = null;
+                }
+            }
+            
+            updateDebugInfo() {
+                if (!this.debugMode) return;
+                
+                const activeModules = Array.from(this.modules.values())
+                    .filter(m => m.visible).length;
+                
+                document.getElementById('debug-theme').textContent = this.currentTheme;
+                document.getElementById('debug-modules').textContent = activeModules;
+                document.getElementById('debug-fps').textContent = this.getFPS();
+                document.getElementById('debug-performance').textContent = this.getPerformanceStatus();
+            }
+            
+            getFPS() {
+                // Simple FPS approximation
+                return Math.floor(60 / (this.modules.size || 1)) + ' FPS';
+            }
+            
+            getPerformanceStatus() {
+                const activeModules = Array.from(this.modules.values())
+                    .filter(m => m.visible).length;
+                
+                if (activeModules <= 2) return 'EXCELLENT';
+                if (activeModules <= 3) return 'GOOD';
+                if (activeModules <= 4) return 'OK';
+                return 'HEAVY';
             }
         }
         
-        // Initialize HUD Controller when DOM is loaded
+        // Initialize HUD Container when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            window.hudController = new HUDController();
+            window.hudContainer = new HUDContainer();
         });
         
-        // Export for external access
-        window.HUD = {
-            updateStatus: (module, data) => window.hudController?.updateStatus(module, data),
-            setTheme: (theme) => window.hudController?.setTheme(theme),
-            toggleModule: (module, visible) => window.hudController?.toggleModule(module, visible),
-            showSettings: () => window.hudController?.showSettingsMenu(),
-            hideSettings: () => window.hudController?.hideSettingsMenu()
-        };
+        // Fallback for immediate script execution
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!window.hudContainer) {
+                    window.hudContainer = new HUDContainer();
+                }
+            });
+        } else {
+            window.hudContainer = new HUDContainer();
+        }
     </script>
 </body>
 </html>

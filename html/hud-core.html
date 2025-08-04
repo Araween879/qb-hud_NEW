@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="neon-magenta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HUD Core - Status Balken</title>
+    
+    <!-- Neon Design-DNA Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            /* Neon Design-DNA Farben */
+            --primary: #B026FF;     /* Magenta */
+            --secondary: #0ff;      /* Cyan */
+            --accent: #FFD700;      /* Gold */
+            --bg-dark: #1a1a1a;
+            --bg-darker: #111;
+            --text-primary: #fff;
+            --text-secondary: #e0e0e0;
+            
+            /* Status Farben */
+            --health-color: #ff4444;
+            --armor-color: #00bcd4;
+            --hunger-color: #ffb74d;
+            --thirst-color: #29b6f6;
+            --stress-color: #a020f0;
+            --stamina-color: #66bb6a;
+            --voice-color: #4caf50;
+            
+            /* Animationen */
+            --transition: all 0.3s ease;
+            --glow: 0 0 15px rgba(176, 38, 255, 0.4);
+            --glow-strong: 0 0 25px rgba(176, 38, 255, 0.8);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Orbitron', 'Roboto', sans-serif;
+            background: transparent;
+            color: var(--text-primary);
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+        }
+        
+        /* Main Container */
+        .hud-core-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        
+        /* Status Bar Base */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            background: linear-gradient(145deg, rgba(30, 30, 30, 0.9), rgba(10, 10, 10, 0.9));
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 8px 12px;
+            min-width: 200px;
+            backdrop-filter: blur(10px);
+            box-shadow: var(--glow);
+            transition: var(--transition);
+            pointer-events: auto;
+        }
+        
+        .status-bar:hover {
+            transform: translateX(5px) scale(1.02);
+            box-shadow: var(--glow-strong);
+        }
+        
+        /* Status Icon */
+        .status-icon {
+            font-size: 18px;
+            margin-right: 12px;
+            min-width: 20px;
+            text-align: center;
+            transition: var(--transition);
+        }
+        
+        /* Status Bar Fill */
+        .status-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-bar-fill {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .status-fill {
+            height: 100%;
+            width: 100%;
+            border-radius: 3px;
+            transition: all 0.5s ease;
+            position: relative;
+            transform-origin: left;
+        }
+        
+        /* Status Value Text */
+        .status-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            min-width: 40px;
+            text-align: right;
+        }
+        
+        /* Voice Status (Special Layout) */
+        .voice-status {
+            background: linear-gradient(145deg, rgba(76, 175, 80, 0.2), rgba(10, 10, 10, 0.9));
+            border-color: var(--voice-color);
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
+        }
+        
+        .voice-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .voice-level {
+            display: flex;
+            gap: 2px;
+        }
+        
+        .voice-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transition: var(--transition);
+        }
+        
+        .voice-dot.active {
+            background: var(--voice-color);
+            box-shadow: 0 0 8px var(--voice-color);
+        }
+        
+        .voice-indicators {
+            display: flex;
+            gap: 4px;
+            font-size: 12px;
+        }
+        
+        .voice-indicator {
+            opacity: 0.5;
+            transition: var(--transition);
+        }
+        
+        .voice-indicator.active {
+            opacity: 1;
+            color: var(--accent);
+        }
+        
+        /* Status-specific colors */
+        .health-bar .status-icon { color: var(--health-color); }
+        .health-bar .status-fill { background: linear-gradient(90deg, var(--health-color), #ff6666); }
+        
+        .armor-bar .status-icon { color: var(--armor-color); }
+        .armor-bar .status-fill { background: linear-gradient(90deg, var(--armor-color), #26c6da); }
+        
+        .hunger-bar .status-icon { color: var(--hunger-color); }
+        .hunger-bar .status-fill { background: linear-gradient(90deg, var(--hunger-color), #ffcc80); }
+        
+        .thirst-bar .status-icon { color: var(--thirst-color); }
+        .thirst-bar .status-fill { background: linear-gradient(90deg, var(--thirst-color), #4fc3f7); }
+        
+        .stress-bar .status-icon { color: var(--stress-color); }
+        .stress-bar .status-fill { background: linear-gradient(90deg, var(--stress-color), #ba68c8); }
+        
+        .stamina-bar .status-icon { color: var(--stamina-color); }
+        .stamina-bar .status-fill { background: linear-gradient(90deg, var(--stamina-color), #81c784); }
+        
+        /* Pulsing Animation für kritische Werte */
+        @keyframes criticalPulse {
+            0%, 100% { 
+                box-shadow: var(--glow);
+                border-color: var(--primary);
+            }
+            50% { 
+                box-shadow: 0 0 25px rgba(255, 0, 0, 0.8);
+                border-color: #ff0000;
+            }
+        }
+        
+        .status-bar.critical {
+            animation: criticalPulse 1.5s infinite;
+        }
+        
+        /* Scan Animation */
+        @keyframes scanLine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .status-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.3), 
+                transparent
+            );
+            animation: scanLine 6s infinite;
+        }
+        
+        /* Talking Animation */
+        @keyframes voicePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .voice-status.talking .status-icon {
+            animation: voicePulse 0.5s infinite;
+            color: var(--accent);
+        }
+        
+        /* Low Value Warning */
+        .status-bar.low .status-icon {
+            animation: criticalPulse 2s infinite;
+        }
+        
+        /* Hidden State */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Themes */
+        [data-theme="neon-cyan"] {
+            --primary: #0ff;
+            --glow: 0 0 15px rgba(0, 255, 255, 0.4);
+            --glow-strong: 0 0 25px rgba(0, 255, 255, 0.8);
+        }
+        
+        [data-theme="classic"] {
+            --primary: #ffffff;
+            --secondary: #cccccc;
+            --accent: #ffff00;
+            --glow: 0 0 15px rgba(255, 255, 255, 0.4);
+            --glow-strong: 0 0 25px rgba(255, 255, 255, 0.8);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .hud-core-container {
+                bottom: 10px;
+                left: 10px;
+            }
+            
+            .status-bar {
+                min-width: 180px;
+                padding: 6px 10px;
+            }
+            
+            .status-icon {
+                font-size: 16px;
+                margin-right: 10px;
+            }
+            
+            .status-value {
+                font-size: 11px;
+                min-width: 35px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hud-core-container" id="hud-core">
+        
+        <!-- Voice Status (🎤 Mikrofon) -->
+        <div class="status-bar voice-status" id="voice-bar">
+            <div class="status-content">
+                <i class="status-icon fas fa-microphone" id="voice-icon"></i>
+                <div class="voice-content">
+                    <div class="voice-level" id="voice-level">
+                        <div class="voice-dot"></div>
+                        <div class="voice-dot"></div>
+                        <div class="voice-dot"></div>
+                        <div class="voice-dot"></div>
+                    </div>
+                    <div class="voice-indicators">
+                        <span class="voice-indicator" id="radio-indicator">
+                            <i class="fas fa-broadcast-tower"></i>
+                        </span>
+                        <span class="voice-indicator" id="muted-indicator">
+                            <i class="fas fa-microphone-slash"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Health Status (❤️ Leben) -->
+        <div class="status-bar health-bar" id="health-bar">
+            <div class="status-content">
+                <i class="status-icon fas fa-heart"></i>
+                <div class="status-bar-fill">
+                    <div class="status-fill" id="health-fill" style="transform: scaleX(1);"></div>
+                </div>
+                <span class="status-value" id="health-value">100</span>
+            </div>
+        </div>
+        
+        <!-- Armor Status (🛡️ Rüstung) -->
+        <div class="status-bar armor-bar" id="armor-bar">
+            <div class="status-content">
+                <i class="status-icon fas fa-shield-alt"></i>
+                <div class="status-bar-fill">
+                    <div class="status-fill" id="armor-fill" style="transform: scaleX(0);"></div>
+                </div>
+                <span class="status-value" id="armor-value">0</span>
+            </div>
+        </div>
+        
+        <!-- Hunger Status (🍔 Essen) -->
+        <div class="status-bar hunger-bar" id="hunger-bar">
+            <div class="status-content">
+                <i class="status-icon fas fa-hamburger"></i>
+                <div class="status-bar-fill">
+                    <div class="status-fill" id="hunger-fill" style="transform: scaleX(1);"></div>
+                </div>
+                <span class="status-value" id="hunger-value">100</span>
+            </div>
+        </div>
+        
+        <!-- Thirst Status (💧 Durst) -->
+        <div class="status-bar thirst-bar" id="thirst-bar">
+            <div class="status-content">
+                <i class="status-icon fas fa-tint"></i>
+                <div class="status-bar-fill">
+                    <div class="status-fill" id="thirst-fill" style="transform: scaleX(1);"></div>
+                </div>
+                <span class="status-value" id="thirst-value">100</span>
+            </div>
+        </div>
+        
+        <!-- Stress Status (🧠 Stress) -->
+        <div class="status-bar stress-bar" id="stress-bar">
+            <div class="status-content">
+                <i class="status-icon fas fa-brain"></i>
+                <div class="status-bar-fill">
+                    <div class="status-fill" id="stress-fill" style="transform: scaleX(0);"></div>
+                </div>
+                <span class="status-value" id="stress-value">0</span>
+            </div>
+        </div>
+        
+        <!-- Stamina Status (🏃 Ausdauer) -->
+        <div class="status-bar stamina-bar" id="stamina-bar">
+            <div class="status-content">
+                <i class="status-icon fas fa-running"></i>
+                <div class="status-bar-fill">
+                    <div class="status-fill" id="stamina-fill" style="transform: scaleX(1);"></div>
+                </div>
+                <span class="status-value" id="stamina-value">100</span>
+            </div>
+        </div>
+        
+    </div>
+    
+    <script>
+        // HUD Core Status Manager
+        class HUDCoreManager {
+            constructor() {
+                this.status = {
+                    voice: { level: 2, talking: false, radioActive: false, muted: false },
+                    health: 100,
+                    armor: 0,
+                    hunger: 100,
+                    thirst: 100,
+                    stress: 0,
+                    stamina: 100
+                };
+                
+                this.elements = {
+                    voiceBar: document.getElementById('voice-bar'),
+                    voiceIcon: document.getElementById('voice-icon'),
+                    voiceLevel: document.getElementById('voice-level'),
+                    radioIndicator: document.getElementById('radio-indicator'),
+                    mutedIndicator: document.getElementById('muted-indicator'),
+                    
+                    healthBar: document.getElementById('health-bar'),
+                    healthFill: document.getElementById('health-fill'),
+                    healthValue: document.getElementById('health-value'),
+                    
+                    armorBar: document.getElementById('armor-bar'),
+                    armorFill: document.getElementById('armor-fill'),
+                    armorValue: document.getElementById('armor-value'),
+                    
+                    hungerBar: document.getElementById('hunger-bar'),
+                    hungerFill: document.getElementById('hunger-fill'),
+                    hungerValue: document.getElementById('hunger-value'),
+                    
+                    thirstBar: document.getElementById('thirst-bar'),
+                    thirstFill: document.getElementById('thirst-fill'),
+                    thirstValue: document.getElementById('thirst-value'),
+                    
+                    stressBar: document.getElementById('stress-bar'),
+                    stressFill: document.getElementById('stress-fill'),
+                    stressValue: document.getElementById('stress-value'),
+                    
+                    staminaBar: document.getElementById('stamina-bar'),
+                    staminaFill: document.getElementById('stamina-fill'),
+                    staminaValue: document.getElementById('stamina-value')
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                console.log('🎯 HUD Core Manager initialized');
+                
+                // Setup click handlers
+                this.setupClickHandlers();
+                
+                // Setup message listener
+                this.setupMessageListener();
+                
+                // Initial render
+                this.render();
+            }
+            
+            setupClickHandlers() {
+                // Voice level cycling
+                this.elements.voiceBar.addEventListener('click', () => {
+                    this.cycleVoiceLevel();
+                });
+            }
+            
+            setupMessageListener() {
+                window.addEventListener('message', (event) => {
+                    const { action, data } = event.data;
+                    
+                    switch (action) {
+                        case 'updateStatus':
+                            this.updateStatus(data);
+                            break;
+                        case 'updateVoice':
+                            this.updateVoice(data);
+                            break;
+                        case 'setVisible':
+                            this.setVisible(data.visible);
+                            break;
+                        case 'setTheme':
+                            this.setTheme(data.theme);
+                            break;
+                    }
+                });
+            }
+            
+            updateStatus(data) {
+                if (!data) return;
+                
+                // Update cached status
+                Object.assign(this.status, data);
+                
+                // Update UI
+                this.updateHealthBar();
+                this.updateArmorBar();
+                this.updateHungerBar();
+                this.updateThirstBar();
+                this.updateStressBar();
+                this.updateStaminaBar();
+            }
+            
+            updateVoice(data) {
+                if (!data) return;
+                
+                Object.assign(this.status.voice, data);
+                this.updateVoiceBar();
+            }
+            
+            updateHealthBar() {
+                const value = Math.max(0, Math.min(100, this.status.health));
+                this.elements.healthFill.style.transform = `scaleX(${value / 100})`;
+                this.elements.healthValue.textContent = Math.floor(value);
+                
+                // Critical health warning
+                if (value <= 25) {
+                    this.elements.healthBar.classList.add('critical');
+                } else {
+                    this.elements.healthBar.classList.remove('critical');
+                }
+            }
+            
+            updateArmorBar() {
+                const value = Math.max(0, Math.min(100, this.status.armor));
+                this.elements.armorFill.style.transform = `scaleX(${value / 100})`;
+                this.elements.armorValue.textContent = Math.floor(value);
+                
+                // Hide armor bar if no armor
+                if (value <= 0) {
+                    this.elements.armorBar.style.opacity = '0.5';
+                } else {
+                    this.elements.armorBar.style.opacity = '1';
+                }
+            }
+            
+            updateHungerBar() {
+                const value = Math.max(0, Math.min(100, this.status.hunger));
+                this.elements.hungerFill.style.transform = `scaleX(${value / 100})`;
+                this.elements.hungerValue.textContent = Math.floor(value);
+                
+                // Low hunger warning
+                if (value <= 20) {
+                    this.elements.hungerBar.classList.add('low');
+                } else {
+                    this.elements.hungerBar.classList.remove('low');
+                }
+            }
+            
+            updateThirstBar() {
+                const value = Math.max(0, Math.min(100, this.status.thirst));
+                this.elements.thirstFill.style.transform = `scaleX(${value / 100})`;
+                this.elements.thirstValue.textContent = Math.floor(value);
+                
+                // Low thirst warning
+                if (value <= 20) {
+                    this.elements.thirstBar.classList.add('low');
+                } else {
+                    this.elements.thirstBar.classList.remove('low');
+                }
+            }
+            
+            updateStressBar() {
+                const value = Math.max(0, Math.min(100, this.status.stress));
+                this.elements.stressFill.style.transform = `scaleX(${value / 100})`;
+                this.elements.stressValue.textContent = Math.floor(value);
+                
+                // High stress warning
+                if (value >= 75) {
+                    this.elements.stressBar.classList.add('critical');
+                } else {
+                    this.elements.stressBar.classList.remove('critical');
+                }
+            }
+            
+            updateStaminaBar() {
+                const value = Math.max(0, Math.min(100, this.status.stamina));
+                this.elements.staminaFill.style.transform = `scaleX(${value / 100})`;
+                this.elements.staminaValue.textContent = Math.floor(value);
+            }
+            
+            updateVoiceBar() {
+                const voice = this.status.voice;
+                
+                // Update voice level dots
+                const dots = this.elements.voiceLevel.querySelectorAll('.voice-dot');
+                dots.forEach((dot, index) => {
+                    if (index < voice.level) {
+                        dot.classList.add('active');
+                    } else {
+                        dot.classList.remove('active');
+                    }
+                });
+                
+                // Update talking state
+                if (voice.talking) {
+                    this.elements.voiceBar.classList.add('talking');
+                } else {
+                    this.elements.voiceBar.classList.remove('talking');
+                }
+                
+                // Update radio indicator
+                if (voice.radioActive) {
+                    this.elements.radioIndicator.classList.add('active');
+                } else {
+                    this.elements.radioIndicator.classList.remove('active');
+                }
+                
+                // Update muted indicator
+                if (voice.muted) {
+                    this.elements.mutedIndicator.classList.add('active');
+                    this.elements.voiceIcon.className = 'status-icon fas fa-microphone-slash';
+                } else {
+                    this.elements.mutedIndicator.classList.remove('active');
+                    this.elements.voiceIcon.className = 'status-icon fas fa-microphone';
+                }
+            }
+            
+            cycleVoiceLevel() {
+                // Cycle through voice levels 1-4
+                this.status.voice.level = (this.status.voice.level % 4) + 1;
+                this.updateVoiceBar();
+                
+                // Send to FiveM
+                this.sendToFiveM('hudcore:cycleVoiceLevel', {
+                    level: this.status.voice.level
+                });
+            }
+            
+            setVisible(visible) {
+                const container = document.getElementById('hud-core');
+                if (visible) {
+                    container.classList.remove('hidden');
+                } else {
+                    container.classList.add('hidden');
+                }
+            }
+            
+            setTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+            }
+            
+            sendToFiveM(action, data) {
+                fetch(`https://${this.getResourceName()}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data || {})
+                }).catch(() => {
+                    // Ignore fetch errors in development
+                });
+            }
+            
+            getResourceName() {
+                return window.GetParentResourceName ? GetParentResourceName() : 'qb-hud';
+            }
+            
+            render() {
+                this.updateHealthBar();
+                this.updateArmorBar();
+                this.updateHungerBar();
+                this.updateThirstBar();
+                this.updateStressBar();
+                this.updateStaminaBar();
+                this.updateVoiceBar();
+                
+                console.log('🎯 HUD Core rendered');
+            }
+        }
+        
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.hudCoreManager = new HUDCoreManager();
+        });
+        
+        // Fallback for immediate execution
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!window.hudCoreManager) {
+                    window.hudCoreManager = new HUDCoreManager();
+                }
+            });
+        } else {
+            window.hudCoreManager = new HUDCoreManager();
+        }
+    </script>
+</body>
+</html>
