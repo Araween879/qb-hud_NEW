@@ -1,528 +1,895 @@
 -- ================================================================
--- QBCore HUD - Location System Module
+-- QBCore HUD - Location & Streets System Module
 -- Version: 3.0.0
--- Description: Street names, zone detection, and area display
+-- Description: Advanced location tracking with streets, zones, and navigation
 -- ================================================================
 
 local QBCore = exports['qb-core']:GetCoreObject()
 
-local Location = {}
-local isInitialized = false
-local updateThread = nil
-local isVisible = true
+-- Location System Module
+Location = Location or {}
+Location.Initialized = false
+Location.Visible = true
+Location.LastUpdate = 0
+Location.UpdateInterval = Config.Modules.location.updateInterval or 1500
 
--- Current location values
-local currentStreet1 = ""
-local currentStreet2 = ""
-local currentZone = ""
-local currentArea = ""
-local lastUpdate = 0
+-- Location Status Data
+Location.Status = {
+    -- Current location
+    coords = { x = 0, y = 0, z = 0 },
+    
+    -- Street information
+    street = {
+        primary = "Unknown Street",     -- Main street name
+        secondary = "",                 -- Cross street (if available)
+        combined = "Unknown Street",    -- Combined street display
+        hash1 = 0,                     -- Primary street hash
+        hash2 = 0                      -- Secondary street hash
+    },
+    
+    -- Zone information
+    zone = {
+        name = "Unknown",              -- Zone name (technical)
+        label = "Unknown Area",        -- Zone display name
+        hash = 0                       -- Zone hash
+    },
+    
+    -- Direction information
+    direction = {
+        heading = 0,                   -- Heading in degrees (0-360)
+        cardinal = "N",                -- Cardinal direction (N, NE, E, etc.)
+        degrees = "0°"                 -- Degrees display
+    },
+    
+    -- Postal code (if available)
+    postal = {
+        code = "",                     -- Postal code
+        available = false              -- Postal system available
+    },
+    
+    -- Waypoint information
+    waypoint = {
+        active = false,                -- Waypoint is set
+        coords = { x = 0, y = 0, z = 0 }, -- Waypoint coordinates
+        distance = 0,                  -- Distance to waypoint
+        direction = 0,                 -- Direction to waypoint
+        eta = 0                        -- Estimated time to arrival
+    },
+    
+    -- Location history
+    history = {},                      -- Recent locations
+    
+    -- Configuration
+    showStreets = true,
+    showZone = true,
+    showDirection = true,
+    showPostal = false,
+    showCoordinates = false
+}
 
--- Zone name translations (English to readable names)
-local zoneNames = {
-    -- Los Santos Areas
-    ['AIRP'] = 'Los Santos International Airport',
-    ['ALAMO'] = 'Alamo Sea',
-    ['ALTA'] = 'Alta',
-    ['ARMYB'] = 'Fort Zancudo',
-    ['BANHAMC'] = 'Banham Canyon Dr',
-    ['BANNING'] = 'Banning',
-    ['BEACH'] = 'Vespucci Beach',
-    ['BHAMCA'] = 'Banham Canyon',
-    ['BRADP'] = 'Braddock Pass',
-    ['BRADT'] = 'Braddock Tunnel',
-    ['BURTON'] = 'Burton',
-    ['CALAFB'] = 'Calafia Bridge',
-    ['CANNY'] = 'Raton Canyon',
-    ['CCREAK'] = 'Cassidy Creek',
-    ['CHAMH'] = 'Chamberlain Hills',
-    ['CHIL'] = 'Vinewood Hills',
-    ['CHU'] = 'Chumash',
-    ['CMSW'] = 'Chiliad Mountain State Wilderness',
-    ['CYPRE'] = 'Cypress Flats',
-    ['DAVIS'] = 'Davis',
-    ['DELBE'] = 'Del Perro Beach',
-    ['DELPE'] = 'Del Perro',
-    ['DELSOL'] = 'La Puerta',
-    ['DESRT'] = 'Grand Senora Desert',
-    ['DOWNT'] = 'Downtown',
-    ['DTVINE'] = 'Downtown Vinewood',
-    ['EAST_V'] = 'East Vinewood',
-    ['EBURO'] = 'El Burro Heights',
-    ['ELGORL'] = 'El Gordo Lighthouse',
-    ['ELYSIAN'] = 'Elysian Island',
-    ['GALFISH'] = 'Galilee',
-    ['GOLF'] = 'GWC and Golfing Society',
-    ['GRAPES'] = 'Grapeseed',
-    ['GREATC'] = 'Great Chaparral',
-    ['HARMO'] = 'Harmony',
-    ['HAWICK'] = 'Hawick',
-    ['HORS'] = 'Vinewood Racetrack',
-    ['HUMLAB'] = 'Humane Labs and Research',
-    ['IGLESIAS'] = 'Iglesias',
-    ['ISHEIST'] = 'Island',
-    ['KOREAT'] = 'Little Seoul',
-    ['LACT'] = 'Land Act Reservoir',
-    ['LAGO'] = 'Lago Zancudo',
-    ['LDAM'] = 'Land Act Dam',
-    ['LEGSQU'] = 'Legion Square',
-    ['LMESA'] = 'La Mesa',
-    ['LOSPUER'] = 'La Puerta',
-    ['MIRR'] = 'Mirror Park',
-    ['MORN'] = 'Morningwood',
-    ['MOVIE'] = 'Richards Majestic',
-    ['MTCHIL'] = 'Mount Chiliad',
-    ['MTGORDO'] = 'Mount Gordo',
-    ['MTJOSE'] = 'Mount Josiah',
-    ['MURRI'] = 'Murrieta Heights',
-    ['NCHU'] = 'North Chumash',
-    ['NOOSE'] = 'N.O.O.S.E',
-    ['OCEANA'] = 'Pacific Ocean',
-    ['PALCOV'] = 'Paleto Cove',
-    ['PALETO'] = 'Paleto Bay',
-    ['PALFOR'] = 'Paleto Forest',
-    ['PALHIGH'] = 'Palomino Highlands',
-    ['PALMPOW'] = 'Palmer-Taylor Power Station',
-    ['PBLUFF'] = 'Pacific Bluffs',
-    ['PBOX'] = 'Pillbox Hill',
-    ['PROCOB'] = 'Procopio Beach',
-    ['RANCHO'] = 'Rancho',
-    ['RGLEN'] = 'Richman Glen',
-    ['RICHM'] = 'Richman',
-    ['ROCKF'] = 'Rockford Hills',
-    ['RTRAK'] = 'Redwood Lights Track',
-    ['SANAND'] = 'San Andreas',
-    ['SANCHIA'] = 'San Chianski Mountain Range',
-    ['SANDY'] = 'Sandy Shores',
-    ['SKID'] = 'Mission Row',
-    ['SLAB'] = 'Stab City',
-    ['STAD'] = 'Maze Bank Arena',
-    ['STRAW'] = 'Strawberry',
-    ['TATAMO'] = 'Tataviam Mountains',
-    ['TERMINA'] = 'Terminal',
-    ['TEXTI'] = 'Textile City',
-    ['TONGVAH'] = 'Tongva Hills',
-    ['TONGVAV'] = 'Tongva Valley',
-    ['VCANA'] = 'Vespucci Canals',
-    ['VESP'] = 'Vespucci',
-    ['VINE'] = 'Vinewood',
-    ['WINDF'] = 'Ron Alternates Wind Farm',
-    ['WVINE'] = 'West Vinewood',
-    ['ZANCUDO'] = 'Zancudo River',
-    ['ZP_ORT'] = 'Port of Los Santos',
-    ['ZQ_UAR'] = 'Davis Quartz'
+-- Postal System Integration
+Location.Postal = {
+    resource = nil,                    -- Postal resource name
+    available = false,                 -- Postal system available
+    lastPostalUpdate = 0              -- Last postal update time
+}
+
+-- Performance tracking
+Location.Performance = {
+    updateCount = 0,
+    averageUpdateTime = 0,
+    skippedUpdates = 0,
+    cacheHits = 0,
+    cacheMisses = 0
+}
+
+-- Location cache for performance
+Location.Cache = {
+    streets = {},                      -- Street name cache
+    zones = {},                        -- Zone name cache
+    lastCacheClean = 0,               -- Last cache cleanup
+    maxCacheSize = 100,               -- Maximum cache entries
+    cacheTimeout = 300000             -- Cache timeout (5 minutes)
 }
 
 -- ================================================================
--- CORE FUNCTIONS
+-- INITIALIZATION SYSTEM
 -- ================================================================
 
 ---Initialize the Location module
+---@return boolean success
 function Location.Init()
-    if isInitialized then
-        HUD.Debug("^3Location module already initialized^7", "LOCATION")
+    if Location.Initialized then
+        HUD.Debug("Location module already initialized", "LOCATION", "WARN")
         return true
     end
     
-    HUD.Debug("^2Initializing Location module^7", "LOCATION")
+    HUD.Debug("Initializing Location module...", "LOCATION", "INFO")
+    
+    -- Check if module is enabled
+    if not Config.Modules.location.enabled then
+        HUD.Debug("Location module disabled in config", "LOCATION", "INFO")
+        return false
+    end
+    
+    -- Load configuration
+    Location.LoadConfiguration()
+    
+    -- Initialize postal system
+    Location.InitializePostalSystem()
     
     -- Register events
     Location.RegisterEvents()
     
+    -- Register NUI callbacks
+    Location.RegisterNUICallbacks()
+    
     -- Start update thread
     Location.StartUpdateThread()
     
-    -- Set initial visibility
-    isVisible = Config.Modules.location.enabled
+    -- Initialize location cache
+    Location.InitializeCache()
     
-    isInitialized = true
-    HUD.Debug("^2Location module initialized successfully^7", "LOCATION")
+    Location.Initialized = true
+    HUD.Debug("Location module initialized successfully", "LOCATION", "INFO")
+    
+    -- Send initial update
+    Location.ForceUpdate()
     
     return true
 end
 
----Register all location-related events
-function Location.RegisterEvents()
-    -- Module visibility events
-    RegisterNetEvent('hud:client:moduleVisibilityChanged', function(moduleName, visible)
-        if moduleName == 'location' then
-            Location.SetVisible(visible)
+---Load Location module configuration
+function Location.LoadConfiguration()
+    local config = Config.Modules.location or {}
+    
+    Location.Status.showStreets = config.showStreetNames or true
+    Location.Status.showZone = config.showZoneName or true
+    Location.Status.showDirection = config.showPointer or true
+    Location.Status.showPostal = config.showPostal or false
+    Location.Status.showCoordinates = config.showCoordinates or false
+    
+    Location.UpdateInterval = config.updateInterval or 1500
+    
+    HUD.Debug("Location configuration loaded", "LOCATION", "INFO")
+end
+
+---Initialize postal system integration
+function Location.InitializePostalSystem()
+    -- Check for postal code resources
+    local postalResources = {'nearest-postal', 'postals', 'qb-postals'}
+    
+    for _, resource in ipairs(postalResources) do
+        if GetResourceState(resource) == 'started' then
+            Location.Postal.resource = resource
+            Location.Postal.available = true
+            Location.Status.postal.available = true
+            Location.Status.showPostal = true
+            HUD.Debug(string.format("Postal resource detected: %s", resource), "LOCATION", "INFO")
+            break
+        end
+    end
+    
+    if not Location.Postal.available then
+        HUD.Debug("No postal resource detected - postal codes disabled", "LOCATION", "INFO")
+        Location.Status.showPostal = false
+        Location.Status.postal.available = false
+    end
+end
+
+---Initialize location cache
+function Location.InitializeCache()
+    Location.Cache.streets = {}
+    Location.Cache.zones = {}
+    Location.Cache.lastCacheClean = GetGameTimer()
+    
+    -- Start cache cleanup thread
+    CreateThread(function()
+        while Location.Initialized do
+            Location.CleanCache()
+            Wait(60000) -- Clean cache every minute
         end
     end)
     
-    -- Manual location update event
-    RegisterNetEvent('hud:client:UpdateLocation', function(street1, street2, zone)
-        if street1 then currentStreet1 = street1 end
-        if street2 then currentStreet2 = street2 end
-        if zone then currentZone = zone end
-        Location.SendUpdate()
+    HUD.Debug("Location cache initialized", "LOCATION", "INFO")
+end
+
+-- ================================================================
+-- EVENT SYSTEM
+-- ================================================================
+
+---Register Location module events
+function Location.RegisterEvents()
+    -- Player events
+    RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+        Location.ForceUpdate()
     end)
     
-    HUD.Debug("^2Location events registered^7", "LOCATION")
+    RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+        Location.SetVisible(false)
+    end)
+    
+    -- Location control events
+    RegisterNetEvent('hud:client:toggleLocation', function(visible)
+        Location.SetVisible(visible)
+    end)
+    
+    RegisterNetEvent('hud:client:updateLocationSettings', function(settings)
+        Location.UpdateSettings(settings)
+    end)
+    
+    -- Waypoint events
+    RegisterNetEvent('hud:client:waypointSet', function()
+        Location.OnWaypointSet()
+    end)
+    
+    RegisterNetEvent('hud:client:waypointCleared', function()
+        Location.OnWaypointCleared()
+    end)
+    
+    HUD.Debug("Location events registered", "LOCATION", "INFO")
 end
+
+---Register NUI callbacks
+function Location.RegisterNUICallbacks()
+    RegisterNUICallback('locationClick', function(data, cb)
+        Location.OnLocationClick()
+        cb('ok')
+    end)
+    
+    RegisterNUICallback('copyCoordinates', function(data, cb)
+        Location.CopyCoordinates()
+        cb('ok')
+    end)
+    
+    RegisterNUICallback('getLocationDetails', function(data, cb)
+        cb(Location.GetDetailedStatus())
+    end)
+    
+    RegisterNUICallback('toggleLocationDisplay', function(data, cb)
+        Location.ToggleDisplayMode()
+        cb('ok')
+    end)
+    
+    HUD.Debug("Location NUI callbacks registered", "LOCATION", "INFO")
+end
+
+-- ================================================================
+-- UPDATE SYSTEM
+-- ================================================================
 
 ---Start the location update thread
 function Location.StartUpdateThread()
-    if updateThread then
-        HUD.Debug("^3Location update thread already running^7", "LOCATION")
-        return
-    end
-    
-    updateThread = CreateThread(function()
-        while isInitialized do
-            if LocalPlayer.state.isLoggedIn and isVisible then
-                Location.UpdateLocation()
+    CreateThread(function()
+        while Location.Initialized do
+            local currentTime = GetGameTimer()
+            
+            if currentTime - Location.LastUpdate >= Location.UpdateInterval then
+                local startTime = GetGameTimer()
+                
+                Location.UpdateLocationStatus()
+                Location.SendToNUI()
+                
+                Location.LastUpdate = currentTime
+                Location.Performance.updateCount = Location.Performance.updateCount + 1
+                
+                -- Performance tracking
+                local updateTime = GetGameTimer() - startTime
+                Location.Performance.averageUpdateTime = 
+                    (Location.Performance.averageUpdateTime + updateTime) / 2
+            else
+                Location.Performance.skippedUpdates = Location.Performance.skippedUpdates + 1
             end
-            Wait(Config.Modules.location.updateInterval or 1500)
+            
+            Wait(100) -- Check every 100ms but only update based on interval
         end
     end)
     
-    HUD.Debug("^2Location update thread started^7", "LOCATION")
+    HUD.Debug("Location update thread started", "LOCATION", "INFO")
 end
 
----Update location information
-function Location.UpdateLocation()
-    local player = PlayerPedId()
-    if not player or player == 0 then return end
+---Update location status
+function Location.UpdateLocationStatus()
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
     
-    local coords = GetEntityCoords(player)
+    -- Update coordinates
+    Location.Status.coords = { x = coords.x, y = coords.y, z = coords.z }
     
-    -- Get street names
-    local street1Hash, street2Hash = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
-    local newStreet1 = GetStreetNameFromHashKey(street1Hash) or ""
-    local newStreet2 = GetStreetNameFromHashKey(street2Hash) or ""
+    -- Update street information
+    Location.UpdateStreetInfo(coords)
     
-    -- Get zone name
-    local zoneHash = GetNameOfZone(coords.x, coords.y, coords.z)
-    local newZone = zoneNames[zoneHash] or zoneHash or ""
+    -- Update zone information
+    Location.UpdateZoneInfo(coords)
     
-    -- Get area (for special locations like buildings, etc.)
-    local newArea = Location.GetSpecialArea(coords)
+    -- Update direction information
+    Location.UpdateDirectionInfo()
     
-    -- Check for significant changes (optimization)
-    local streetChanged = newStreet1 ~= currentStreet1 or newStreet2 ~= currentStreet2
-    local zoneChanged = newZone ~= currentZone
-    local areaChanged = newArea ~= currentArea
-    
-    if streetChanged or zoneChanged or areaChanged then
-        currentStreet1 = newStreet1
-        currentStreet2 = newStreet2
-        currentZone = newZone
-        currentArea = newArea
-        
-        Location.SendUpdate()
-        
-        -- Debug output
-        if Config.Debug then
-            HUD.Debug(string.format("^2Location updated: %s | %s | %s^7", 
-                      Location.GetFormattedStreet(), currentZone, currentArea), "LOCATION")
-        end
+    -- Update postal code (if available)
+    if Location.Postal.available then
+        Location.UpdatePostalCode(coords)
     end
+    
+    -- Update waypoint information
+    Location.UpdateWaypointInfo(coords)
+    
+    -- Update location history
+    Location.UpdateLocationHistory()
 end
 
----Get special area name for current coordinates
+---Update street information with caching
 ---@param coords vector3 Player coordinates
----@return string Area name
-function Location.GetSpecialArea(coords)
-    -- Check for special buildings/areas
-    local areas = {
-        -- Police Stations
-        {coords = vector3(425.1, -979.5, 30.7), radius = 50.0, name = "Mission Row Police Station"},
-        {coords = vector3(1854.3, 3678.9, 34.2), radius = 50.0, name = "Sandy Shores Police Station"},
-        {coords = vector3(-449.1, 6008.0, 31.7), radius = 50.0, name = "Paleto Bay Police Station"},
-        
-        -- Hospitals
-        {coords = vector3(295.0, -1446.9, 29.9), radius = 50.0, name = "Central Los Santos Medical Center"},
-        {coords = vector3(-247.8, 6331.5, 32.4), radius = 50.0, name = "Paleto Bay Medical Center"},
-        {coords = vector3(1839.6, 3672.9, 34.3), radius = 50.0, name = "Sandy Shores Medical Center"},
-        
-        -- Government Buildings
-        {coords = vector3(-544.5, -204.5, 38.2), radius = 30.0, name = "City Hall"},
-        {coords = vector3(-1368.8, -503.7, 33.2), radius = 30.0, name = "Del Perro Police Station"},
-        
-        -- Shopping Centers
-        {coords = vector3(25.7, -1347.3, 29.5), radius = 40.0, name = "Strawberry 24/7"},
-        {coords = vector3(1135.8, -982.3, 46.4), radius = 40.0, name = "Mirror Park 24/7"},
-        {coords = vector3(373.5, 325.6, 103.6), radius = 40.0, name = "Clinton Avenue 24/7"},
-        
-        -- Banks
-        {coords = vector3(150.3, -1040.2, 29.4), radius = 30.0, name = "Fleeca Bank"},
-        {coords = vector3(-1212.9, -330.8, 37.8), radius = 30.0, name = "Fleeca Bank"},
-        {coords = vector3(-2962.7, 482.6, 15.7), radius = 30.0, name = "Fleeca Bank"},
-        
-        -- Car Dealerships
-        {coords = vector3(-56.7, -1096.6, 26.4), radius = 50.0, name = "Premium Deluxe Motorsport"},
-        {coords = vector3(-33.9, -1102.3, 26.4), radius = 50.0, name = "Simeon's Dealership"},
-        
-        -- Garages
-        {coords = vector3(215.8, -805.1, 30.8), radius = 30.0, name = "Central Garage"},
-        {coords = vector3(596.4, 90.6, 93.1), radius = 30.0, name = "Vinewood Garage"},
-        
-        -- Gas Stations
-        {coords = vector3(49.4, 2778.8, 58.0), radius = 25.0, name = "Route 68 Gas Station"},
-        {coords = vector3(263.9, 2606.5, 44.9), radius = 25.0, name = "Route 68 Gas Station"},
-        {coords = vector3(1039.9, 2671.1, 39.6), radius = 25.0, name = "Grand Senora Gas Station"},
-        
-        -- Special Locations
-        {coords = vector3(-75.0, -818.6, 326.2), radius = 100.0, name = "Maze Bank Tower"},
-        {coords = vector3(240.0, -1379.9, 33.7), radius = 40.0, name = "Maze Bank Arena"},
-        {coords = vector3(-1266.8, -3014.1, -49.5), radius = 50.0, name = "Los Santos International Airport"},
+function Location.UpdateStreetInfo(coords)
+    local cacheKey = string.format("%.0f_%.0f", coords.x // 50, coords.y // 50) -- 50m grid cache
+    
+    -- Check cache first
+    local cached = Location.Cache.streets[cacheKey]
+    if cached and (GetGameTimer() - cached.time) < Location.Cache.cacheTimeout then
+        Location.Status.street = cached.data
+        Location.Performance.cacheHits = Location.Performance.cacheHits + 1
+        return
+    end
+    
+    -- Get street names from game
+    local street1, street2 = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
+    
+    local streetData = {
+        hash1 = street1,
+        hash2 = street2,
+        primary = GetStreetNameFromHashKey(street1) or "Unknown Street",
+        secondary = street2 ~= 0 and GetStreetNameFromHashKey(street2) or "",
+        combined = ""
     }
     
-    -- Check if player is in any special area
-    for _, area in pairs(areas) do
-        local distance = #(coords - area.coords)
-        if distance <= area.radius then
-            return area.name
+    -- Create combined street name
+    if streetData.secondary ~= "" then
+        streetData.combined = streetData.primary .. " / " .. streetData.secondary
+    else
+        streetData.combined = streetData.primary
+    end
+    
+    Location.Status.street = streetData
+    
+    -- Cache the result
+    Location.Cache.streets[cacheKey] = {
+        data = streetData,
+        time = GetGameTimer()
+    }
+    Location.Performance.cacheMisses = Location.Performance.cacheMisses + 1
+    
+    -- Clean cache if too large
+    if table.count(Location.Cache.streets) > Location.Cache.maxCacheSize then
+        Location.CleanCache()
+    end
+end
+
+---Update zone information with caching
+---@param coords vector3 Player coordinates
+function Location.UpdateZoneInfo(coords)
+    local cacheKey = string.format("zone_%.0f_%.0f", coords.x // 100, coords.y // 100) -- 100m grid cache
+    
+    -- Check cache first
+    local cached = Location.Cache.zones[cacheKey]
+    if cached and (GetGameTimer() - cached.time) < Location.Cache.cacheTimeout then
+        Location.Status.zone = cached.data
+        Location.Performance.cacheHits = Location.Performance.cacheHits + 1
+        return
+    end
+    
+    -- Get zone from game
+    local zoneHash = GetNameOfZone(coords.x, coords.y, coords.z)
+    local zoneLabel = GetLabelText(zoneHash)
+    
+    -- Fallback if label is not found
+    if zoneLabel == "NULL" or zoneLabel == "" then
+        zoneLabel = zoneHash
+    end
+    
+    local zoneData = {
+        name = zoneHash,
+        label = zoneLabel,
+        hash = GetHashKey(zoneHash)
+    }
+    
+    Location.Status.zone = zoneData
+    
+    -- Cache the result
+    Location.Cache.zones[cacheKey] = {
+        data = zoneData,
+        time = GetGameTimer()
+    }
+    Location.Performance.cacheMisses = Location.Performance.cacheMisses + 1
+end
+
+---Update direction information
+function Location.UpdateDirectionInfo()
+    local ped = PlayerPedId()
+    local heading = GetEntityHeading(ped)
+    
+    Location.Status.direction.heading = heading
+    Location.Status.direction.cardinal = Location.GetCardinalDirection(heading)
+    Location.Status.direction.degrees = string.format("%.0f°", heading)
+end
+
+---Update postal code information
+---@param coords vector3 Player coordinates
+function Location.UpdatePostalCode(coords)
+    if not Location.Postal.available then return end
+    
+    local currentTime = GetGameTimer()
+    if currentTime - Location.Postal.lastPostalUpdate < 2000 then return end -- Update every 2 seconds
+    
+    -- Get postal code based on resource
+    local postal = ""
+    
+    if Location.Postal.resource == 'nearest-postal' then
+        postal = exports['nearest-postal']:GetNearestPostal(coords.x, coords.y, coords.z)
+    elseif Location.Postal.resource == 'postals' then
+        postal = exports['postals']:GetClosestPostal(coords)
+    elseif Location.Postal.resource == 'qb-postals' then
+        postal = exports['qb-postals']:GetPostal(coords)
+    end
+    
+    if postal and type(postal) == "string" then
+        Location.Status.postal.code = postal
+    elseif postal and type(postal) == "table" and postal.code then
+        Location.Status.postal.code = postal.code
+    end
+    
+    Location.Postal.lastPostalUpdate = currentTime
+end
+
+---Update waypoint information
+---@param coords vector3 Player coordinates
+function Location.UpdateWaypointInfo(coords)
+    local waypointActive = IsWaypointActive()
+    Location.Status.waypoint.active = waypointActive
+    
+    if waypointActive then
+        local waypointCoords = GetBlipInfoIdCoord(GetFirstBlipInfoId(8))
+        Location.Status.waypoint.coords = { x = waypointCoords.x, y = waypointCoords.y, z = waypointCoords.z }
+        
+        -- Calculate distance
+        local distance = #(coords - waypointCoords)
+        Location.Status.waypoint.distance = math.floor(distance)
+        
+        -- Calculate direction to waypoint
+        local dx = waypointCoords.x - coords.x
+        local dy = waypointCoords.y - coords.y
+        local direction = math.deg(math.atan2(dy, dx))
+        if direction < 0 then direction = direction + 360 end
+        Location.Status.waypoint.direction = direction
+        
+        -- Estimate ETA (assuming average speed of 50 km/h = 13.89 m/s)
+        local avgSpeed = 13.89 -- m/s
+        Location.Status.waypoint.eta = math.floor(distance / avgSpeed)
+    else
+        Location.Status.waypoint.coords = { x = 0, y = 0, z = 0 }
+        Location.Status.waypoint.distance = 0
+        Location.Status.waypoint.direction = 0
+        Location.Status.waypoint.eta = 0
+    end
+end
+
+---Update location history
+function Location.UpdateLocationHistory()
+    local current = Location.Status
+    local history = Location.Status.history
+    
+    -- Add current location to history if it's different enough
+    local shouldAdd = true
+    if #history > 0 then
+        local last = history[#history]
+        local distance = math.sqrt(
+            (current.coords.x - last.coords.x)^2 + 
+            (current.coords.y - last.coords.y)^2
+        )
+        if distance < 100 then -- Less than 100m difference
+            shouldAdd = false
         end
     end
     
-    return ""
+    if shouldAdd then
+        table.insert(history, {
+            coords = current.coords,
+            street = current.street.combined,
+            zone = current.zone.label,
+            timestamp = GetGameTimer()
+        })
+        
+        -- Keep only last 10 locations
+        if #history > 10 then
+            table.remove(history, 1)
+        end
+    end
 end
 
----Send current location data to NUI
-function Location.SendUpdate()
-    if not isVisible then return end
+-- ================================================================
+-- NUI COMMUNICATION
+-- ================================================================
+
+---Send location data to NUI
+function Location.SendToNUI()
+    if not Location.Visible then return end
     
     local locationData = {
-        street = {
-            primary = currentStreet1,
-            secondary = currentStreet2,
-            formatted = Location.GetFormattedStreet()
-        },
-        zone = currentZone,
-        area = currentArea,
-        display = {
-            showStreetNames = Config.Modules.location.showStreetNames,
-            showZoneName = Config.Modules.location.showZoneName,
-            showPointer = Config.Modules.location.showPointer,
-            showDegrees = Config.Modules.location.showDegrees
-        },
-        heading = Location.GetPlayerHeading()
+        -- Street information
+        street = Location.Status.street.combined,
+        streetPrimary = Location.Status.street.primary,
+        streetSecondary = Location.Status.street.secondary,
+        
+        -- Zone information
+        zone = Location.Status.zone.label,
+        zoneName = Location.Status.zone.name,
+        
+        -- Direction information
+        heading = Location.Status.direction.heading,
+        cardinal = Location.Status.direction.cardinal,
+        degrees = Location.Status.direction.degrees,
+        
+        -- Coordinates
+        coords = Location.Status.coords,
+        
+        -- Postal code
+        postal = Location.Status.postal.code,
+        
+        -- Waypoint information
+        waypoint = Location.Status.waypoint,
+        
+        -- Display settings
+        showStreets = Location.Status.showStreets,
+        showZone = Location.Status.showZone,
+        showDirection = Location.Status.showDirection,
+        showPostal = Location.Status.showPostal,
+        showCoordinates = Location.Status.showCoordinates,
+        
+        -- Status
+        postalAvailable = Location.Postal.available
     }
     
-    -- Send to UI Manager for NUI update
+    -- Send to NUI
+    SendNUIMessage({
+        action = 'updateLocation',
+        data = locationData
+    })
+    
+    -- Also send to UIManager if available
     if UIManager and UIManager.UpdateModule then
         UIManager.UpdateModule('location', locationData)
     end
 end
 
 -- ================================================================
--- FORMATTING FUNCTIONS
+-- EVENT HANDLERS
 -- ================================================================
 
----Get formatted street name string
----@return string Formatted street name
-function Location.GetFormattedStreet()
-    if currentStreet1 ~= "" and currentStreet2 ~= "" then
-        return string.format("%s / %s", currentStreet1, currentStreet2)
-    elseif currentStreet1 ~= "" then
-        return currentStreet1
-    elseif currentStreet2 ~= "" then
-        return currentStreet2
-    else
-        return "Unknown Area"
+---Handle waypoint set event
+function Location.OnWaypointSet()
+    HUD.Debug("Waypoint set - updating location display", "LOCATION", "INFO")
+    Location.UpdateWaypointInfo(GetEntityCoords(PlayerPedId()))
+    Location.SendToNUI()
+end
+
+---Handle waypoint cleared event
+function Location.OnWaypointCleared()
+    HUD.Debug("Waypoint cleared - updating location display", "LOCATION", "INFO")
+    Location.Status.waypoint.active = false
+    Location.SendToNUI()
+end
+
+---Handle location click event
+function Location.OnLocationClick()
+    if Config.GPSHUD.interaction.clickableIcons then
+        -- Toggle display mode or show detailed info
+        local message = Location.GetLocationMessage()
+        QBCore.Functions.Notify(message, 'primary')
+        
+        HUD.Debug("Location clicked - detailed info shown", "LOCATION", "INFO")
     end
 end
 
----Get player heading as compass direction
----@return table Heading information
-function Location.GetPlayerHeading()
-    local player = PlayerPedId()
-    if not player or player == 0 then
-        return {degrees = 0, direction = "N"}
+---Handle settings update
+---@param settings table New settings
+function Location.UpdateSettings(settings)
+    if type(settings) ~= "table" then return end
+    
+    if settings.showStreets ~= nil then
+        Location.Status.showStreets = settings.showStreets
     end
     
-    local heading = GetEntityHeading(player)
-    local direction = Location.GetCompassDirection(heading)
-    
-    return {
-        degrees = math.floor(heading),
-        direction = direction,
-        formatted = string.format("%s (%d°)", direction, math.floor(heading))
-    }
-end
-
----Convert heading to compass direction
----@param heading number Heading in degrees
----@return string Compass direction
-function Location.GetCompassDirection(heading)
-    local directions = {
-        {0, 22.5, "N"}, {22.5, 67.5, "NE"}, {67.5, 112.5, "E"}, {112.5, 157.5, "SE"},
-        {157.5, 202.5, "S"}, {202.5, 247.5, "SW"}, {247.5, 292.5, "W"}, {292.5, 337.5, "NW"},
-        {337.5, 360, "N"}
-    }
-    
-    for _, dir in ipairs(directions) do
-        if heading >= dir[1] and heading < dir[2] then
-            return dir[3]
-        end
+    if settings.showZone ~= nil then
+        Location.Status.showZone = settings.showZone
     end
     
-    return "N"
+    if settings.showDirection ~= nil then
+        Location.Status.showDirection = settings.showDirection
+    end
+    
+    if settings.showPostal ~= nil then
+        Location.Status.showPostal = settings.showPostal
+    end
+    
+    if settings.showCoordinates ~= nil then
+        Location.Status.showCoordinates = settings.showCoordinates
+    end
+    
+    Location.SendToNUI()
+    HUD.Debug("Location settings updated", "LOCATION", "INFO")
 end
 
 -- ================================================================
 -- PUBLIC API FUNCTIONS
 -- ================================================================
 
----Set the visibility of the location module
----@param visible boolean
+---Set location module visibility
+---@param visible boolean Visibility state
 function Location.SetVisible(visible)
-    isVisible = visible
-    HUD.Debug(string.format("^2Location visibility set to: %s^7", visible and "visible" or "hidden"), "LOCATION")
+    Location.Visible = visible
+    
+    HUD.Debug(string.format("Location visibility set to: %s", visible and "visible" or "hidden"), "LOCATION", "INFO")
     
     if visible then
-        Location.SendUpdate()
+        Location.SendToNUI()
     else
-        -- Hide the module in NUI
-        if UIManager and UIManager.UpdateModule then
-            UIManager.UpdateModule('location', { visible = false })
-        end
+        SendNUIMessage({
+            action = 'toggleModule',
+            module = 'location',
+            visible = false
+        })
     end
 end
 
----Get current location module visibility
----@return boolean
+---Get location module visibility
+---@return boolean visible
 function Location.IsVisible()
-    return isVisible
+    return Location.Visible
 end
 
----Get current location data
----@return table
-function Location.GetLocationData()
+---Get current location status
+---@return table status
+function Location.GetStatus()
+    return Location.Status
+end
+
+---Get detailed location status
+---@return table detailedStatus
+function Location.GetDetailedStatus()
     return {
-        street1 = currentStreet1,
-        street2 = currentStreet2,
-        zone = currentZone,
-        area = currentArea,
-        formattedStreet = Location.GetFormattedStreet(),
-        heading = Location.GetPlayerHeading()
+        status = Location.Status,
+        postal = Location.Postal,
+        performance = Location.Performance,
+        cache = {
+            streets = table.count(Location.Cache.streets),
+            zones = table.count(Location.Cache.zones),
+            cacheHits = Location.Performance.cacheHits,
+            cacheMisses = Location.Performance.cacheMisses
+        },
+        config = Config.Modules.location
     }
 end
 
 ---Force update location display
 function Location.ForceUpdate()
-    Location.UpdateLocation()
-    Location.SendUpdate()
-    HUD.Debug("^2Location force update triggered^7", "LOCATION")
+    Location.UpdateLocationStatus()
+    Location.SendToNUI()
+    
+    HUD.Debug("Location force update triggered", "LOCATION", "INFO")
 end
 
----Get zone name by hash
----@param zoneHash string Zone hash key
----@return string Zone display name
-function Location.GetZoneDisplayName(zoneHash)
-    return zoneNames[zoneHash] or zoneHash or "Unknown"
-end
-
----Set custom area name (for external use)
----@param areaName string Custom area name
-function Location.SetCustomArea(areaName)
-    if type(areaName) == "string" then
-        currentArea = areaName
-        Location.SendUpdate()
-        HUD.Debug(string.format("^2Custom area set: %s^7", areaName), "LOCATION")
-    end
-end
-
----Clear custom area name
-function Location.ClearCustomArea()
-    currentArea = ""
-    Location.SendUpdate()
-    HUD.Debug("^2Custom area cleared^7", "LOCATION")
+---Set theme for location module
+---@param theme string Theme name
+function Location.SetTheme(theme)
+    SendNUIMessage({
+        action = 'setTheme',
+        theme = theme
+    })
+    
+    HUD.Debug(string.format("Location theme set to: %s", theme), "LOCATION", "INFO")
 end
 
 -- ================================================================
 -- UTILITY FUNCTIONS
 -- ================================================================
 
+---Get cardinal direction from heading
+---@param heading number Heading in degrees
+---@return string direction
+function Location.GetCardinalDirection(heading)
+    local directions = {"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                       "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"}
+    local index = math.floor((heading + 11.25) / 22.5) % 16
+    return directions[index + 1]
+end
+
+---Get location message for display
+---@return string message
+function Location.GetLocationMessage()
+    local parts = {}
+    
+    if Location.Status.showStreets then
+        table.insert(parts, Location.Status.street.combined)
+    end
+    
+    if Location.Status.showZone then
+        table.insert(parts, Location.Status.zone.label)
+    end
+    
+    if Location.Status.showDirection then
+        table.insert(parts, string.format("%s (%s)", 
+                     Location.Status.direction.cardinal, 
+                     Location.Status.direction.degrees))
+    end
+    
+    if Location.Status.showPostal and Location.Status.postal.code ~= "" then
+        table.insert(parts, "Postal: " .. Location.Status.postal.code)
+    end
+    
+    if Location.Status.showCoordinates then
+        table.insert(parts, string.format("Coords: %.1f, %.1f, %.1f", 
+                            Location.Status.coords.x, 
+                            Location.Status.coords.y, 
+                            Location.Status.coords.z))
+    end
+    
+    if Location.Status.waypoint.active then
+        table.insert(parts, string.format("Waypoint: %dm (%ds)", 
+                            Location.Status.waypoint.distance, 
+                            Location.Status.waypoint.eta))
+    end
+    
+    return table.concat(parts, " | ")
+end
+
+---Copy coordinates to clipboard
+function Location.CopyCoordinates()
+    local coords = Location.Status.coords
+    local coordString = string.format("vector3(%.2f, %.2f, %.2f)", coords.x, coords.y, coords.z)
+    
+    -- Send to NUI for clipboard copying
+    SendNUIMessage({
+        action = 'copyToClipboard',
+        text = coordString
+    })
+    
+    QBCore.Functions.Notify("Coordinates copied to clipboard", 'success')
+    HUD.Debug("Coordinates copied: " .. coordString, "LOCATION", "INFO")
+end
+
+---Toggle display mode
+function Location.ToggleDisplayMode()
+    -- Cycle through different display modes
+    if Location.Status.showStreets and Location.Status.showZone then
+        -- Show only streets
+        Location.Status.showStreets = true
+        Location.Status.showZone = false
+        QBCore.Functions.Notify("Location: Streets only", 'primary')
+    elseif Location.Status.showStreets and not Location.Status.showZone then
+        -- Show only zone
+        Location.Status.showStreets = false
+        Location.Status.showZone = true
+        QBCore.Functions.Notify("Location: Zone only", 'primary')
+    else
+        -- Show both
+        Location.Status.showStreets = true
+        Location.Status.showZone = true
+        QBCore.Functions.Notify("Location: Streets + Zone", 'primary')
+    end
+    
+    Location.SendToNUI()
+end
+
+---Get current street name
+---@return string street
+function Location.GetCurrentStreet()
+    return Location.Status.street.combined
+end
+
+---Get current zone name
+---@return string zone
+function Location.GetCurrentZone()
+    return Location.Status.zone.label
+end
+
+---Get distance to waypoint
+---@return number distance
+function Location.GetWaypointDistance()
+    return Location.Status.waypoint.distance
+end
+
 ---Check if player is in specific zone
 ---@param zoneName string Zone name to check
----@return boolean
+---@return boolean inZone
 function Location.IsInZone(zoneName)
-    return currentZone:upper() == zoneName:upper()
+    return Location.Status.zone.name:upper() == zoneName:upper() or 
+           Location.Status.zone.label:upper() == zoneName:upper()
 end
 
----Check if player is near coordinates
----@param coords vector3 Coordinates to check
----@param radius number Check radius
----@return boolean
-function Location.IsNearCoordinates(coords, radius)
-    local player = PlayerPedId()
-    if not player or player == 0 then return false end
+---Clean location cache
+function Location.CleanCache()
+    local currentTime = GetGameTimer()
+    local cleaned = 0
     
-    local playerCoords = GetEntityCoords(player)
-    local distance = #(playerCoords - coords)
-    
-    return distance <= radius
-end
-
----Get distance to coordinates
----@param coords vector3 Target coordinates
----@return number Distance in meters
-function Location.GetDistanceToCoords(coords)
-    local player = PlayerPedId()
-    if not player or player == 0 then return 0 end
-    
-    local playerCoords = GetEntityCoords(player)
-    return #(playerCoords - coords)
-end
-
--- ================================================================
--- SPECIAL LOCATION EVENTS
--- ================================================================
-
--- Thread to check for special location events
-CreateThread(function()
-    local lastSpecialLocation = ""
-    
-    while true do
-        if isInitialized and LocalPlayer.state.isLoggedIn then
-            local player = PlayerPedId()
-            if player and player ~= 0 then
-                local coords = GetEntityCoords(player)
-                local specialLocation = Location.GetSpecialArea(coords)
-                
-                -- Trigger event when entering/leaving special locations
-                if specialLocation ~= lastSpecialLocation then
-                    if specialLocation ~= "" then
-                        TriggerEvent('hud:client:EnteredSpecialLocation', specialLocation)
-                        HUD.Debug(string.format("^2Entered special location: %s^7", specialLocation), "LOCATION")
-                    elseif lastSpecialLocation ~= "" then
-                        TriggerEvent('hud:client:LeftSpecialLocation', lastSpecialLocation)
-                        HUD.Debug(string.format("^3Left special location: %s^7", lastSpecialLocation), "LOCATION")
-                    end
-                    
-                    lastSpecialLocation = specialLocation
-                end
-            end
+    -- Clean street cache
+    for key, data in pairs(Location.Cache.streets) do
+        if currentTime - data.time > Location.Cache.cacheTimeout then
+            Location.Cache.streets[key] = nil
+            cleaned = cleaned + 1
         end
-        
-        Wait(2000) -- Check every 2 seconds for special locations
     end
-end)
-
--- ================================================================
--- MODULE REGISTRATION & CLEANUP
--- ================================================================
-
--- Register module with HUD system
-if HUD then
-    HUD.RegisterModule('location', Location)
+    
+    -- Clean zone cache
+    for key, data in pairs(Location.Cache.zones) do
+        if currentTime - data.time > Location.Cache.cacheTimeout then
+            Location.Cache.zones[key] = nil
+            cleaned = cleaned + 1
+        end
+    end
+    
+    if cleaned > 0 then
+        HUD.Debug(string.format("Cleaned %d cache entries", cleaned), "LOCATION", "INFO")
+    end
+    
+    Location.Cache.lastCacheClean = currentTime
 end
 
--- Export Location functions for external use
-_G.Location = Location
+---Get performance statistics
+---@return table performance
+function Location.GetPerformanceStats()
+    return {
+        initialized = Location.Initialized,
+        visible = Location.Visible,
+        updateInterval = Location.UpdateInterval,
+        updateCount = Location.Performance.updateCount,
+        averageUpdateTime = Location.Performance.averageUpdateTime,
+        skippedUpdates = Location.Performance.skippedUpdates,
+        cacheHits = Location.Performance.cacheHits,
+        cacheMisses = Location.Performance.cacheMisses,
+        cacheSize = table.count(Location.Cache.streets) + table.count(Location.Cache.zones),
+        lastUpdate = Location.LastUpdate,
+        postalAvailable = Location.Postal.available,
+        postalResource = Location.Postal.resource
+    }
+end
+
+-- ================================================================
+-- CLEANUP
+-- ================================================================
+
+---Cleanup function
+function Location.Cleanup()
+    Location.Initialized = false
+    Location.Visible = false
+    Location.Cache.streets = {}
+    Location.Cache.zones = {}
+    
+    HUD.Debug("Location module cleaned up", "LOCATION", "INFO")
+end
 
 -- Cleanup on resource stop
 AddEventHandler('onResourceStop', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then return end
-    
-    if isInitialized then
-        HUD.Debug("^3Location module shutting down^7", "LOCATION")
-        isInitialized = false
-        if updateThread then
-            updateThread = nil
-        end
+    if GetCurrentResourceName() == resourceName then
+        Location.Cleanup()
     end
 end)
+
+-- ================================================================
+-- UTILITY FUNCTION
+-- ================================================================
+
+---Count table entries
+---@param t table Table to count
+---@return number count
+function table.count(t)
+    local count = 0
+    for _ in pairs(t) do count = count + 1 end
+    return count
+end
+
+-- ================================================================
+-- MODULE EXPORT
+-- ================================================================
+
+-- Make Location module available globally
+_G.Location = Location
+
+HUD.Debug("Location module loaded", "LOCATION", "INFO")

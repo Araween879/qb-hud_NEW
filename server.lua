@@ -1,354 +1,121 @@
 -- ================================================================
--- QBCore HUD - Enhanced Server Module
+-- QBCore HUD - Server Module
 -- Version: 3.0.0
--- Description: Server-side events, commands, callbacks and stress system
---              Optimized for GPS HUD integration
+-- Description: Server-side functionality for HUD system
 -- ================================================================
 
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- Server Status
-local ServerStatus = {
-    version = "3.0.0",
-    playersLoaded = {},
-    totalStressEvents = 0,
-    totalMoneyTransactions = 0
-}
-
 -- ================================================================
--- ENHANCED STRESS SYSTEM
+-- DATABASE SETUP (FIXED SQL IMPLEMENTATION)
 -- ================================================================
 
----Gain stress for a player with enhanced logging
----@param source number Player source
----@param amount number Stress amount to gain (0-100)
----@param reason string Reason for stress gain (optional)
----@param category string Stress category: 'combat', 'vehicle', 'environment', 'social' (optional)
-local function GainStress(source, amount, reason, category)
-    if not source or not amount then return end
-    
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return end
-    
-    -- Check if player job is whitelisted (no stress)
-    if Config.WhitelistedJobs[Player.PlayerData.job.name] then return end
-    
-    -- Check if stress system is disabled
-    if Config.DisableStress then return end
-    
-    local currentStress = Player.PlayerData.metadata['stress'] or 0
-    local newStress = math.min(100, currentStress + amount)
-    
-    -- Update player metadata
-    Player.Functions.SetMetaData('stress', newStress)
-    
-    -- Trigger client update (GPS HUD will receive this)
-    TriggerClientEvent('hud:client:UpdateStress', source, newStress)
-    
-    -- Enhanced logging
-    ServerStatus.totalStressEvents = ServerStatus.totalStressEvents + 1
-    
-    if Config.Debug then
-        print(string.format("^3[HUD:SERVER]^7 Player %s gained %d stress (%s | %s). New stress: %d", 
-              Player.PlayerData.name, amount, reason or "unknown", category or "general", newStress))
-    end
-    
-    -- Trigger stress effects at high levels
-    if newStress >= 85 and currentStress < 85 then
-        TriggerClientEvent('hud:client:StressEffects', source, 'high')
-    elseif newStress >= 60 and currentStress < 60 then
-        TriggerClientEvent('hud:client:StressEffects', source, 'medium')
-    end
-end
+-- HUD Settings Table Name
+local HUD_SETTINGS_TABLE = 'qb_hud_settings'
 
----Relieve stress for a player with enhanced logging
----@param source number Player source
----@param amount number Stress amount to relieve (0-100)
----@param reason string Reason for stress relief (optional)
----@param category string Relief category: 'rest', 'activity', 'medication', 'social' (optional)
-local function RelieveStress(source, amount, reason, category)
-    if not source or not amount then return end
-    
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return end
-    
-    local currentStress = Player.PlayerData.metadata['stress'] or 0
-    local newStress = math.max(0, currentStress - amount)
-    
-    -- Update player metadata
-    Player.Functions.SetMetaData('stress', newStress)
-    
-    -- Trigger client update (GPS HUD will receive this)
-    TriggerClientEvent('hud:client:UpdateStress', source, newStress)
-    
-    -- Enhanced logging
-    if Config.Debug then
-        print(string.format("^2[HUD:SERVER]^7 Player %s relieved %d stress (%s | %s). New stress: %d", 
-              Player.PlayerData.name, amount, reason or "unknown", category or "general", newStress))
-    end
-end
-
--- ================================================================
--- EVENTS
--- ================================================================
-
--- Enhanced Stress Events
-RegisterNetEvent('hud:server:GainStress', function(amount, reason, category)
-    local src = source
-    if not src then return end
-    
-    GainStress(src, amount, reason, category)
-end)
-
-RegisterNetEvent('hud:server:RelieveStress', function(amount, reason, category)
-    local src = source
-    if not src then return end
-    
-    RelieveStress(src, amount, reason, category)
-end)
-
--- Player loaded event - send initial GPS HUD data
-RegisterNetEvent('QBCore:Server:PlayerLoaded', function(Player)
-    local src = source
-    if not Player then return end
-    
-    -- Track loaded players
-    ServerStatus.playersLoaded[src] = {
-        name = Player.PlayerData.name,
-        loadTime = os.time(),
-        citizenid = Player.PlayerData.citizenid
-    }
-    
-    -- Wait for client to be ready
-    Wait(2000)
-    
-    -- Send initial biometric data to GPS HUD
-    local hunger = Player.PlayerData.metadata['hunger'] or 100
-    local thirst = Player.PlayerData.metadata['thirst'] or 100
-    local stress = Player.PlayerData.metadata['stress'] or 0
-    
-    TriggerClientEvent('hud:client:UpdateNeeds', src, hunger, thirst)
-    TriggerClientEvent('hud:client:UpdateStress', src, stress)
-    
-    -- Send welcome message with GPS HUD info
-    if Config.Debug then
-        TriggerClientEvent('QBCore:Notify', src, 'GPS HUD System Active', 'success')
+---Create HUD settings table if not exists
+local function CreateHudSettingsTable()
+    if not MySQL then
+        print("^1[HUD-SERVER] MySQL wrapper not available^7")
+        return false
     end
     
-    if Config.Debug then
-        print(string.format("^2[HUD:SERVER]^7 GPS HUD data sent to %s (ID: %s)", Player.PlayerData.name, Player.PlayerData.citizenid))
-    end
-end)
-
--- Player unload event
-RegisterNetEvent('QBCore:Server:PlayerUnload', function(source)
-    if ServerStatus.playersLoaded[source] then
-        if Config.Debug then
-            print(string.format("^3[HUD:SERVER]^7 Player %s unloaded", ServerStatus.playersLoaded[source].name))
-        end
-        ServerStatus.playersLoaded[source] = nil
-    end
-end)
-
--- Enhanced Money change event
-RegisterNetEvent('hud:server:OnMoneyChange', function(moneyType, amount, action, reason)
-    local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    if not Player then return end
+    -- ✅ FIXED: Complete SQL query string
+    local query = string.format([[
+        CREATE TABLE IF NOT EXISTS %s (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            citizenid VARCHAR(50) NOT NULL UNIQUE,
+            settings JSON NOT NULL,
+            theme VARCHAR(50) DEFAULT 'neon-magenta',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_citizenid (citizenid)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ]], HUD_SETTINGS_TABLE)
     
-    local currentAmount = 0
-    if moneyType == 'cash' then
-        currentAmount = Player.PlayerData.money['cash'] or 0
-    elseif moneyType == 'bank' then
-        currentAmount = Player.PlayerData.money['bank'] or 0
-    end
-    
-    -- Track transaction
-    ServerStatus.totalMoneyTransactions = ServerStatus.totalMoneyTransactions + 1
-    
-    -- Trigger client money display update (GPS HUD can show this)
-    TriggerClientEvent('hud:client:OnMoneyChange', src, {
-        type = moneyType,
-        amount = amount,
-        newAmount = currentAmount,
-        action = action,
-        reason = reason
-    })
-    
-    if Config.Debug then
-        print(string.format("^6[HUD:SERVER]^7 Money change: %s %s %d (new: %d) - %s", 
-              Player.PlayerData.name, moneyType, amount, currentAmount, reason or action or "unknown"))
-    end
-end)
-
--- ================================================================
--- ENHANCED COMMANDS
--- ================================================================
-
--- Cash command with GPS HUD integration
-QBCore.Commands.Add('cash', 'Check your cash amount', {}, false, function(source, args)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return end
-    
-    local cashAmount = Player.PlayerData.money['cash'] or 0
-    TriggerClientEvent('QBCore:Notify', source, 'Cash: $' .. QBCore.Shared.CommaValue(cashAmount), 'primary')
-    
-    -- Show in GPS HUD as well
-    TriggerClientEvent('hud:client:ShowMoney', source, {
-        cash = cashAmount,
-        duration = 5000
-    })
-end)
-
--- Bank command with GPS HUD integration
-QBCore.Commands.Add('bank', 'Check your bank amount', {}, false, function(source, args)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return end
-    
-    local bankAmount = Player.PlayerData.money['bank'] or 0
-    TriggerClientEvent('QBCore:Notify', source, 'Bank: $' .. QBCore.Shared.CommaValue(bankAmount), 'primary')
-    
-    -- Show in GPS HUD as well
-    TriggerClientEvent('hud:client:ShowMoney', source, {
-        bank = bankAmount,
-        duration = 5000
-    })
-end)
-
--- Enhanced admin stress command
-QBCore.Commands.Add('setstress', 'Set player stress level (Admin Only)', {
-    {name = 'id', help = 'Player ID'},
-    {name = 'stress', help = 'Stress level (0-100)'},
-    {name = 'reason', help = 'Reason (optional)'}
-}, true, function(source, args)
-    local targetId = tonumber(args[1])
-    local stressLevel = tonumber(args[2])
-    local reason = args[3] or "Admin Command"
-    
-    if not targetId or not stressLevel then
-        TriggerClientEvent('QBCore:Notify', source, 'Invalid arguments. Usage: /setstress [id] [stress] [reason]', 'error')
-        return
-    end
-    
-    if stressLevel < 0 or stressLevel > 100 then
-        TriggerClientEvent('QBCore:Notify', source, 'Stress level must be between 0 and 100', 'error')
-        return
-    end
-    
-    local TargetPlayer = QBCore.Functions.GetPlayer(targetId)
-    if not TargetPlayer then
-        TriggerClientEvent('QBCore:Notify', source, 'Player not found', 'error')
-        return
-    end
-    
-    local oldStress = TargetPlayer.PlayerData.metadata['stress'] or 0
-    TargetPlayer.Functions.SetMetaData('stress', stressLevel)
-    TriggerClientEvent('hud:client:UpdateStress', targetId, stressLevel)
-    
-    -- Admin feedback
-    TriggerClientEvent('QBCore:Notify', source, 
-        string.format('Set %s stress: %d → %d (%s)', TargetPlayer.PlayerData.name, oldStress, stressLevel, reason), 'success')
-        
-    -- Player feedback
-    TriggerClientEvent('QBCore:Notify', targetId, 
-        string.format('Your stress level was set to %d%% by an admin', stressLevel), 'primary')
-        
-    if Config.Debug then
-        print(string.format("^6[HUD:SERVER]^7 Admin %s set %s stress: %d → %d (%s)", 
-              GetPlayerName(source), TargetPlayer.PlayerData.name, oldStress, stressLevel, reason))
-    end
-end, 'admin')
-
--- Enhanced test stress command
-QBCore.Commands.Add('teststress', 'Test stress gain/relief (Admin Only)', {
-    {name = 'amount', help = 'Stress amount (+/- value)'},
-    {name = 'reason', help = 'Test reason (optional)'}
-}, true, function(source, args)
-    local amount = tonumber(args[1])
-    local reason = args[2] or "Admin Test"
-    
-    if not amount then
-        TriggerClientEvent('QBCore:Notify', source, 'Invalid amount. Usage: /teststress [amount] [reason]', 'error')
-        return
-    end
-    
-    if amount > 0 then
-        GainStress(source, amount, reason, 'test')
-        TriggerClientEvent('QBCore:Notify', source, string.format('Test: Gained %d stress (%s)', amount, reason), 'primary')
+    -- ✅ SAFE: Type check before execution
+    if type(query) == "string" and query ~= "" then
+        MySQL.query(query, {}, function(result)
+            if result then
+                print("^2[HUD-SERVER] Settings table ready^7")
+            else
+                print("^1[HUD-SERVER] Failed to create settings table^7")
+            end
+        end)
+        return true
     else
-        RelieveStress(source, math.abs(amount), reason, 'test')
-        TriggerClientEvent('QBCore:Notify', source, string.format('Test: Relieved %d stress (%s)', math.abs(amount), reason), 'primary')
+        print("^1[HUD-SERVER] Invalid query - table creation failed^7")
+        return false
     end
-end, 'admin')
-
--- GPS HUD debug command (Admin Only)
-QBCore.Commands.Add('gpshudinfo', 'Get GPS HUD system information (Admin Only)', {}, false, function(source, args)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return end
-    
-    local playerCount = 0
-    for _ in pairs(ServerStatus.playersLoaded) do
-        playerCount = playerCount + 1
-    end
-    
-    local info = {
-        "^3=== GPS HUD SERVER INFO ===^7",
-        string.format("^7Version: ^2%s^7", ServerStatus.version),
-        string.format("^7Players with GPS HUD: ^6%d^7", playerCount),
-        string.format("^7Total Stress Events: ^6%d^7", ServerStatus.totalStressEvents),
-        string.format("^7Total Money Transactions: ^6%d^7", ServerStatus.totalMoneyTransactions),
-        string.format("^7Stress System: %s^7", Config.DisableStress and "^1DISABLED" or "^2ENABLED"),
-        "^3==========================^7"
-    }
-    
-    for _, line in ipairs(info) do
-        TriggerClientEvent('chatMessage', source, "", {}, line)
-    end
-end, 'admin')
+end
 
 -- ================================================================
--- ENHANCED CALLBACKS
+-- INITIALIZATION
 -- ================================================================
 
--- Get enhanced menu data for client
-QBCore.Functions.CreateCallback('hud:server:getMenu', function(source, cb)
+CreateThread(function()
+    Wait(2000) -- Wait for MySQL to be ready
+    
+    -- ✅ SAFE: Check MySQL availability
+    if GetResourceState('oxmysql') == 'started' then
+        MySQL = exports.oxmysql
+        CreateHudSettingsTable()
+    else
+        print("^3[HUD-SERVER] MySQL not available - settings will not persist^7")
+    end
+    
+    print("^2[HUD-SERVER] Server module initialized^7")
+end)
+
+-- ================================================================
+-- PLAYER DATA MANAGEMENT
+-- ================================================================
+
+---Get complete menu data for player
+QBCore.Functions.CreateCallback('hud:server:getMenuData', function(source, cb)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then
-        cb(nil)
+        cb({success = false, error = "Player not found"})
+        return
+    end
+    
+    -- ✅ SAFE: Validate player data before processing
+    if not Player.PlayerData or type(Player.PlayerData) ~= "table" then
+        cb({success = false, error = "Invalid player data"})
         return
     end
     
     local menuData = {
-        version = ServerStatus.version,
-        modules = {},
-        themes = Config.Theme.available or {'neon-magenta', 'neon-cyan', 'synthwave', 'matrix', 'classic'},
-        currentTheme = Config.Theme.current or 'neon-magenta',
-        playerData = {
-            name = Player.PlayerData.name,
-            citizenid = Player.PlayerData.citizenid,
+        success = true,
+        player = {
+            name = Player.PlayerData.name or "Unknown",
+            citizenid = Player.PlayerData.citizenid or "",
             job = {
-                name = Player.PlayerData.job.name,
-                label = Player.PlayerData.job.label,
-                grade = Player.PlayerData.job.grade.name
+                name = Player.PlayerData.job and Player.PlayerData.job.name or "unemployed",
+                label = Player.PlayerData.job and Player.PlayerData.job.label or "Unemployed",
+                grade = Player.PlayerData.job and Player.PlayerData.job.grade and Player.PlayerData.job.grade.name or "0"
             },
-            money = Player.PlayerData.money,
+            money = Player.PlayerData.money or {},
             metadata = {
-                hunger = Player.PlayerData.metadata['hunger'] or 100,
-                thirst = Player.PlayerData.metadata['thirst'] or 100,
-                stress = Player.PlayerData.metadata['stress'] or 0
+                hunger = Player.PlayerData.metadata and Player.PlayerData.metadata['hunger'] or 100,
+                thirst = Player.PlayerData.metadata and Player.PlayerData.metadata['thirst'] or 100,
+                stress = Player.PlayerData.metadata and Player.PlayerData.metadata['stress'] or 0
             }
-        }
+        },
+        modules = {}
     }
     
     -- Add module configurations
-    for moduleName, moduleConfig in pairs(Config.Modules) do
-        menuData.modules[moduleName] = {
-            enabled = moduleConfig.enabled or false,
-            position = moduleConfig.position or 'bottom-left',
-            components = moduleConfig.components or {},
-            priority = moduleConfig.priority or 999,
-            essential = moduleConfig.essential or false
-        }
+    if Config and Config.Modules then
+        for moduleName, moduleConfig in pairs(Config.Modules) do
+            menuData.modules[moduleName] = {
+                enabled = moduleConfig.enabled or false,
+                position = moduleConfig.position or 'bottom-left',
+                components = moduleConfig.components or {},
+                priority = moduleConfig.priority or 999,
+                essential = moduleConfig.essential or false
+            }
+        end
     end
     
     -- Add GPS HUD specific data
@@ -361,10 +128,23 @@ QBCore.Functions.CreateCallback('hud:server:getMenu', function(source, cb)
         }
     end
     
+    -- Add theme data
+    if Config.Theme then
+        menuData.theme = {
+            current = Config.Theme.current or 'neon-magenta',
+            available = Config.Theme.available or {'neon-magenta', 'neon-cyan', 'classic'},
+            colors = Config.Theme.colors or {}
+        }
+    end
+    
     cb(menuData)
 end)
 
--- Enhanced save player settings
+-- ================================================================
+-- SETTINGS MANAGEMENT
+-- ================================================================
+
+---Save player HUD settings
 QBCore.Functions.CreateCallback('hud:server:saveSettings', function(source, cb, settings)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then
@@ -372,18 +152,28 @@ QBCore.Functions.CreateCallback('hud:server:saveSettings', function(source, cb, 
         return
     end
     
+    -- ✅ SAFE: Validate settings data
     if not settings or type(settings) ~= 'table' then
         cb({success = false, error = "Invalid settings data"})
         return
     end
     
-    -- Validate settings structure
+    -- ✅ SAFE: Check MySQL availability
+    if not MySQL then
+        cb({success = false, error = "Database not available"})
+        return
+    end
+    
+    local citizenid = Player.PlayerData.citizenid
+    
+    -- Validate and sanitize settings
     local validatedSettings = {}
     
     -- Validate theme
-    if settings.theme and Config.Theme.available then
+    if settings.theme and type(settings.theme) == "string" then
+        local validThemes = Config.Theme and Config.Theme.available or {'neon-magenta', 'neon-cyan', 'classic'}
         local validTheme = false
-        for _, theme in ipairs(Config.Theme.available) do
+        for _, theme in ipairs(validThemes) do
             if theme == settings.theme then
                 validTheme = true
                 break
@@ -395,229 +185,250 @@ QBCore.Functions.CreateCallback('hud:server:saveSettings', function(source, cb, 
     end
     
     -- Validate modules
-    if settings.modules and type(settings.modules) == 'table' then
+    if settings.modules and type(settings.modules) == "table" then
         validatedSettings.modules = {}
         for moduleName, moduleSettings in pairs(settings.modules) do
-            if Config.Modules[moduleName] then
-                validatedSettings.modules[moduleName] = moduleSettings
+            if type(moduleSettings) == "table" then
+                validatedSettings.modules[moduleName] = {
+                    enabled = type(moduleSettings.enabled) == "boolean" and moduleSettings.enabled or true,
+                    position = type(moduleSettings.position) == "string" and moduleSettings.position or 'bottom-left',
+                    opacity = type(moduleSettings.opacity) == "number" and moduleSettings.opacity or 0.9,
+                    scale = type(moduleSettings.scale) == "number" and moduleSettings.scale or 1.0
+                }
             end
         end
     end
     
-    -- Validate GPS HUD settings
-    if settings.gpsHUD and type(settings.gpsHUD) == 'table' then
-        validatedSettings.gpsHUD = {}
-        for key, value in pairs(settings.gpsHUD) do
-            if type(value) == 'boolean' or type(value) == 'string' or type(value) == 'number' then
-                validatedSettings.gpsHUD[key] = value
-            end
-        end
-    end
-    
-    -- Save to player metadata
-    local currentSettings = Player.PlayerData.metadata['hud_settings'] or {}
-    
-    -- Merge validated settings with existing
-    for key, value in pairs(validatedSettings) do
-        currentSettings[key] = value
-    end
-    
-    currentSettings.lastUpdated = os.time()
-    Player.Functions.SetMetaData('hud_settings', currentSettings)
-    
-    cb({
-        success = true,
-        settings = currentSettings,
-        message = "GPS HUD settings saved successfully"
-    })
-    
-    if Config.Debug then
-        print(string.format("^2[HUD:SERVER]^7 GPS HUD settings saved for %s", Player.PlayerData.name))
-    end
-end)
-
--- Get enhanced player settings
-QBCore.Functions.CreateCallback('hud:server:getSettings', function(source, cb)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then
-        cb({})
-        return
-    end
-    
-    local settings = Player.PlayerData.metadata['hud_settings'] or {}
-    
-    -- Add default GPS HUD settings if not present
-    if not settings.gpsHUD then
-        settings.gpsHUD = {
-            theme = Config.Theme.current or 'neon-magenta',
-            position = 'bottom-left',
-            components = Config.GPSHUD.components or {},
-            animations = Config.GPSHUD.animations or {}
+    -- Validate UI settings
+    if settings.ui and type(settings.ui) == "table" then
+        validatedSettings.ui = {
+            scaling = type(settings.ui.scaling) == "number" and settings.ui.scaling or 1.0,
+            opacity = type(settings.ui.opacity) == "number" and settings.ui.opacity or 0.9,
+            animations = type(settings.ui.animations) == "boolean" and settings.ui.animations or true,
+            glowEffects = type(settings.ui.glowEffects) == "boolean" and settings.ui.glowEffects or true
         }
     end
     
-    cb(settings)
+    -- Save to database
+    local query = string.format([[
+        INSERT INTO %s (citizenid, settings, theme) 
+        VALUES (?, ?, ?) 
+        ON DUPLICATE KEY UPDATE 
+            settings = VALUES(settings), 
+            theme = VALUES(theme),
+            updated_at = CURRENT_TIMESTAMP
+    ]], HUD_SETTINGS_TABLE)
+    
+    local params = {
+        citizenid,
+        json.encode(validatedSettings),
+        validatedSettings.theme or 'neon-magenta'
+    }
+    
+    MySQL.query(query, params, function(result)
+        if result and result.affectedRows and result.affectedRows > 0 then
+            cb({success = true, message = "Settings saved successfully"})
+            print(string.format("^2[HUD-SERVER] Settings saved for %s^7", citizenid))
+        else
+            cb({success = false, error = "Failed to save settings"})
+            print(string.format("^1[HUD-SERVER] Failed to save settings for %s^7", citizenid))
+        end
+    end)
 end)
 
--- Get comprehensive player stress data
-QBCore.Functions.CreateCallback('hud:server:getStressData', function(source, cb)
+---Load player HUD settings
+QBCore.Functions.CreateCallback('hud:server:loadSettings', function(source, cb)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then
-        cb({stress = 0, disabled = true})
+        cb({success = false, error = "Player not found"})
         return
     end
     
-    local stress = Player.PlayerData.metadata['stress'] or 0
-    local jobWhitelisted = Config.WhitelistedJobs[Player.PlayerData.job.name] or false
+    -- ✅ SAFE: Check MySQL availability
+    if not MySQL then
+        cb({success = false, error = "Database not available"})
+        return
+    end
     
-    cb({
-        stress = stress,
-        disabled = Config.DisableStress,
-        jobWhitelisted = jobWhitelisted,
-        effectLevel = stress >= 85 and 'high' or stress >= 60 and 'medium' or stress >= 25 and 'low' or 'none'
-    })
-end)
-
--- ================================================================
--- AUTOMATIC STRESS SYSTEM (Enhanced)
--- ================================================================
-
--- Vehicle speed stress system
-CreateThread(function()
-    if Config.DisableStress then return end
+    local citizenid = Player.PlayerData.citizenid
     
-    while true do
-        Wait(10000) -- Check every 10 seconds
-        
-        for _, playerId in pairs(GetPlayers()) do
-            local src = tonumber(playerId)
-            local Player = QBCore.Functions.GetPlayer(src)
+    local query = string.format([[
+        SELECT settings, theme, updated_at 
+        FROM %s 
+        WHERE citizenid = ? 
+        LIMIT 1
+    ]], HUD_SETTINGS_TABLE)
+    
+    MySQL.query(query, {citizenid}, function(result)
+        if result and result[1] then
+            local data = result[1]
+            local settings = {}
             
-            if Player and not Config.WhitelistedJobs[Player.PlayerData.job.name] then
-                -- Check if player is in vehicle and speeding
-                local ped = GetPlayerPed(src)
-                if ped and DoesEntityExist(ped) then
-                    local vehicle = GetVehiclePedIsIn(ped, false)
-                    
-                    if vehicle and vehicle ~= 0 then
-                        local speed = GetEntitySpeed(vehicle) * (Config.UseMPH and 2.23694 or 3.6)
-                        local vehicleClass = GetVehicleClass(vehicle)
-                        local vehicleHash = GetEntityModel(vehicle)
-                        
-                        -- Check if vehicle/class is whitelisted
-                        local isWhitelisted = Config.WhitelistedVehicles[vehicleHash] or not Config.VehClassStress[tostring(vehicleClass)]
-                        
-                        if not isWhitelisted and speed >= Config.MinimumSpeed then
-                            local stressAmount = math.random(1, 3)
-                            
-                            -- Check if seatbelt is off (more stress)
-                            if speed >= Config.MinimumSpeedUnbuckled then
-                                -- Check seatbelt status (implement seatbelt detection)
-                                stressAmount = stressAmount * 1.5
-                            end
-                            
-                            -- Higher stress for extreme speeds
-                            if speed >= 150 then
-                                stressAmount = stressAmount * 2
-                            end
-                            
-                            if math.random() < Config.StressChance then
-                                GainStress(src, math.ceil(stressAmount), string.format("High Speed Driving (%.0f %s)", speed, Config.UseMPH and "MPH" or "KPH"), 'vehicle')
-                            end
-                        end
-                    end
+            -- ✅ SAFE: Parse JSON settings
+            if data.settings then
+                local success, parsedSettings = pcall(json.decode, data.settings)
+                if success and type(parsedSettings) == "table" then
+                    settings = parsedSettings
                 end
             end
+            
+            cb({
+                success = true,
+                settings = settings,
+                theme = data.theme or 'neon-magenta',
+                lastUpdated = data.updated_at
+            })
+        else
+            -- Return default settings
+            cb({
+                success = true,
+                settings = {
+                    modules = {},
+                    ui = {
+                        scaling = 1.0,
+                        opacity = 0.9,
+                        animations = true,
+                        glowEffects = true
+                    }
+                },
+                theme = 'neon-magenta',
+                lastUpdated = nil
+            })
         end
-    end
-end)
-
--- Combat stress system (Enhanced)
-AddEventHandler('entityDamage', function(entity, attacker, weapon, damage)
-    if not entity or not IsEntityAPed(entity) then return end
-    if Config.DisableStress then return end
-    
-    local victimPlayerId = NetworkGetPlayerIndexFromPed(entity)
-    if victimPlayerId == -1 then return end
-    
-    local victimSource = GetPlayerServerId(victimPlayerId)
-    if not victimSource then return end
-    
-    local Player = QBCore.Functions.GetPlayer(victimSource)
-    if not Player or Config.WhitelistedJobs[Player.PlayerData.job.name] then return end
-    
-    -- Check if damage is from weapon
-    if weapon and weapon ~= 0 and not Config.WhitelistedWeaponStress[weapon] then
-        local stressAmount = math.random(2, 5)
-        
-        -- More stress for headshots or high damage
-        if damage >= 50 then
-            stressAmount = stressAmount * 1.5
-        end
-        
-        if math.random() < (Config.StressChance * 1.5) then -- Higher chance for combat stress
-            local weaponName = QBCore.Shared.Weapons[weapon] and QBCore.Shared.Weapons[weapon].label or "Unknown Weapon"
-            GainStress(victimSource, math.ceil(stressAmount), string.format("Combat Damage (%s)", weaponName), 'combat')
-        end
-    end
+    end)
 end)
 
 -- ================================================================
--- EXPORTS
+-- STRESS MANAGEMENT SYSTEM
 -- ================================================================
 
--- Enhanced stress functions for other resources
-exports('GainStress', GainStress)
-exports('RelieveStress', RelieveStress)
-
--- Get player stress level with additional info
-exports('GetStress', function(source)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return 0 end
+---Gain stress for player
+RegisterNetEvent('hud:server:GainStress', function(amount)
+    local src = source
+    local Player = QBCore.Functions.GetPlayer(src)
+    if not Player then return end
     
-    return Player.PlayerData.metadata['stress'] or 0
+    -- ✅ SAFE: Validate amount parameter
+    if type(amount) ~= "number" or amount <= 0 then
+        print(string.format("^3[HUD-SERVER] Invalid stress amount: %s^7", tostring(amount)))
+        return
+    end
+    
+    local currentStress = Player.PlayerData.metadata and Player.PlayerData.metadata['stress'] or 0
+    local newStress = math.min(currentStress + amount, 100) -- Cap at 100
+    
+    Player.Functions.SetMetaData('stress', newStress)
+    
+    -- Trigger client update
+    TriggerClientEvent('hud:client:UpdateStress', src, newStress)
+    
+    print(string.format("^2[HUD-SERVER] Player %s gained %d stress (now: %d)^7", 
+          Player.PlayerData.citizenid, amount, newStress))
 end)
 
--- Set player stress level with validation
-exports('SetStress', function(source, amount, reason)
+---Relieve stress for player
+RegisterNetEvent('hud:server:RelieveStress', function(amount)
+    local src = source
+    local Player = QBCore.Functions.GetPlayer(src)
+    if not Player then return end
+    
+    -- ✅ SAFE: Validate amount parameter
+    if type(amount) ~= "number" or amount <= 0 then
+        print(string.format("^3[HUD-SERVER] Invalid stress relief amount: %s^7", tostring(amount)))
+        return
+    end
+    
+    local currentStress = Player.PlayerData.metadata and Player.PlayerData.metadata['stress'] or 0
+    local newStress = math.max(currentStress - amount, 0) -- Floor at 0
+    
+    Player.Functions.SetMetaData('stress', newStress)
+    
+    -- Trigger client update
+    TriggerClientEvent('hud:client:UpdateStress', src, newStress)
+    
+    print(string.format("^2[HUD-SERVER] Player %s relieved %d stress (now: %d)^7", 
+          Player.PlayerData.citizenid, amount, newStress))
+end)
+
+-- ================================================================
+-- MONEY MANAGEMENT COMMANDS
+-- ================================================================
+
+---Cash command
+QBCore.Commands.Add('cash', 'Check your cash amount', {}, false, function(source, args)
     local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return false end
+    if not Player then return end
     
-    amount = math.max(0, math.min(100, amount))
-    local oldStress = Player.PlayerData.metadata['stress'] or 0
+    local cash = Player.PlayerData.money and Player.PlayerData.money['cash'] or 0
+    TriggerClientEvent('QBCore:Notify', source, string.format('Cash: $%s', comma_value(cash)), 'primary')
+end)
+
+---Bank command
+QBCore.Commands.Add('bank', 'Check your bank balance', {}, false, function(source, args)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
     
-    Player.Functions.SetMetaData('stress', amount)
-    TriggerClientEvent('hud:client:UpdateStress', source, amount)
+    local bank = Player.PlayerData.money and Player.PlayerData.money['bank'] or 0
+    TriggerClientEvent('QBCore:Notify', source, string.format('Bank: $%s', comma_value(bank)), 'primary')
+end)
+
+-- ================================================================
+-- UTILITY FUNCTIONS
+-- ================================================================
+
+---Format number with commas
+---@param amount number
+---@return string
+function comma_value(amount)
+    if not amount or type(amount) ~= "number" then return "0" end
     
-    if Config.Debug then
-        print(string.format("^6[HUD:SERVER]^7 External stress set: %s %d → %d (%s)", 
-              Player.PlayerData.name, oldStress, amount, reason or "External Script"))
+    local formatted = tostring(amount)
+    while true do
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then break end
+    end
+    return formatted
+end
+
+---Validate table structure
+---@param data table
+---@param schema table
+---@return boolean
+function ValidateTableStructure(data, schema)
+    if type(data) ~= "table" or type(schema) ~= "table" then
+        return false
+    end
+    
+    for key, expectedType in pairs(schema) do
+        if type(data[key]) ~= expectedType then
+            return false
+        end
     end
     
     return true
-end)
-
--- Get server statistics
-exports('GetHUDStats', function()
-    return {
-        version = ServerStatus.version,
-        playersLoaded = ServerStatus.playersLoaded,
-        totalStressEvents = ServerStatus.totalStressEvents,
-        totalMoneyTransactions = ServerStatus.totalMoneyTransactions,
-        stressEnabled = not Config.DisableStress
-    }
-end)
+end
 
 -- ================================================================
--- INITIALIZATION
+-- EVENT HANDLERS
 -- ================================================================
 
-CreateThread(function()
-    if Config.Debug then
-        print("^2[HUD:SERVER]^7 Enhanced QBCore HUD Server Module loaded successfully")
-        print(string.format("^2[HUD:SERVER]^7 Version: ^6%s^7", ServerStatus.version))
-        print("^2[HUD:SERVER]^7 Stress System: " .. (Config.DisableStress and "^1DISABLED^7" or "^2ENABLED^7"))
-        print("^2[HUD:SERVER]^7 GPS HUD Integration: " .. (Config.GPSHUD.enabled and "^2ACTIVE^7" or "^1INACTIVE^7"))
-        print("^2[HUD:SERVER]^7 Available Commands: ^3/cash, /bank, /setstress, /teststress, /gpshudinfo^7")
+-- Player connecting event
+RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
+    local src = source
+    print(string.format("^2[HUD-SERVER] Player %s connected^7", src))
+end)
+
+-- Player disconnecting event
+AddEventHandler('playerDropped', function(reason)
+    local src = source
+    print(string.format("^3[HUD-SERVER] Player %s disconnected: %s^7", src, reason))
+end)
+
+-- Resource stopping cleanup
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() == resourceName then
+        print("^3[HUD-SERVER] Shutting down...^7")
     end
 end)
+
+print("^2[HUD-SERVER] Server module loaded successfully^7")

@@ -1,35 +1,62 @@
 -- ================================================================
--- QBCore HUD - UI Manager Module
+-- QBCore HUD - UI Manager Module (COMPLETE)
 -- Version: 3.0.0
 -- Description: Central UI management and coordination system
 -- ================================================================
 
-local UIManager = {}
-local isInitialized = false
-local cinematicMode = false
-local currentTheme = 'neon-magenta'
-local hudVisible = true
-local moduleVisibility = {}
+local QBCore = exports['qb-core']:GetCoreObject()
+
+-- UI Manager System
+UIManager = UIManager or {}
+UIManager.Initialized = false
+UIManager.CinematicMode = false
+UIManager.CurrentTheme = 'neon-magenta'
+UIManager.HudVisible = true
+UIManager.ModuleVisibility = {}
+UIManager.Settings = {}
+
+-- Performance tracking
+UIManager.Performance = {
+    nuiMessageCount = 0,
+    lastNUIUpdate = 0,
+    batchedUpdates = {},
+    batchTimer = nil
+}
+
+-- State management
+UIManager.State = {
+    isInVehicle = false,
+    isDead = false,
+    isUnconscious = false,
+    isPaused = false,
+    cinematicMode = false,
+    scaling = 1.0,
+    opacity = 0.9
+}
 
 -- ================================================================
--- CORE FUNCTIONS
+-- INITIALIZATION SYSTEM
 -- ================================================================
 
 ---Initialize the UI Manager module
+---@return boolean success  
 function UIManager.Init()
-    if isInitialized then
-        HUD.Debug("^3UI Manager already initialized^7", "UI_MANAGER")
+    if UIManager.Initialized then
+        HUD.Debug("UI Manager already initialized", "UI_MANAGER", "WARN")
         return true
     end
     
-    HUD.Debug("^2Initializing UI Manager^7", "UI_MANAGER")
+    HUD.Debug("Initializing UI Manager...", "UI_MANAGER", "INFO")
+    
+    -- Load configuration
+    UIManager.LoadConfiguration()
     
     -- Set initial theme
-    currentTheme = Config.Theme.current or 'neon-magenta'
+    UIManager.CurrentTheme = Config.Theme.current or 'neon-magenta'
     
     -- Initialize module visibility states
     for moduleName, moduleConfig in pairs(Config.Modules) do
-        moduleVisibility[moduleName] = moduleConfig.enabled or false
+        UIManager.ModuleVisibility[moduleName] = moduleConfig.enabled or false
     end
     
     -- Register events
@@ -38,37 +65,70 @@ function UIManager.Init()
     -- Initialize NUI
     UIManager.InitializeNUI()
     
+    -- Setup update batching
+    UIManager.SetupBatching()
+    
     -- Set cinematic mode from config
-    cinematicMode = Config.Modules.ui_manager.cinematicMode or false
-    if cinematicMode then
+    UIManager.CinematicMode = Config.Modules.ui_manager.cinematicMode or false
+    if UIManager.CinematicMode then
         UIManager.SetCinematicMode(true)
     end
     
-    isInitialized = true
-    HUD.Debug("^2UI Manager initialized successfully^7", "UI_MANAGER")
+    UIManager.Initialized = true
+    HUD.Debug("UI Manager initialized successfully", "UI_MANAGER", "INFO")
     
     return true
+end
+
+---Load UI Manager configuration
+function UIManager.LoadConfiguration()
+    local config = Config.Modules.ui_manager or {}
+    
+    UIManager.Settings = {
+        cinematicMode = config.cinematicMode or false,
+        scaling = config.scaling or 1.0,
+        opacity = config.opacity or 0.9,
+        enableGlowEffects = config.enableGlowEffects or true,
+        enableAnimations = config.enableAnimations or true,
+        theme = config.theme or Config.Theme.current,
+        batchUpdates = Config.Advanced.optimization.batchUpdates or true,
+        throttleUpdates = Config.Advanced.optimization.throttleUpdates or true
+    }
+    
+    HUD.Debug("UI Manager configuration loaded", "UI_MANAGER", "INFO")
 end
 
 ---Initialize NUI communication
 function UIManager.InitializeNUI()
     -- Send initial theme configuration to NUI
-    SendNUIMessage({
+    UIManager.SendNUIMessage({
         action = 'setTheme',
-        theme = currentTheme,
-        colors = Config.Theme.colors[currentTheme],
+        theme = UIManager.CurrentTheme,
+        colors = Config.Theme.colors[UIManager.CurrentTheme],
         fonts = Config.Theme.fonts,
         animations = Config.Theme.animations,
         layout = Config.Theme.layout
     })
     
     -- Send initial module visibility states
-    SendNUIMessage({
+    UIManager.SendNUIMessage({
         action = 'setModuleVisibility',
-        visibility = moduleVisibility
+        visibility = UIManager.ModuleVisibility
     })
     
-    HUD.Debug("^2NUI initialized with theme: " .. currentTheme .. "^7", "UI_MANAGER")
+    -- Send initial UI settings
+    UIManager.SendNUIMessage({
+        action = 'updateUISettings',
+        settings = {
+            scaling = UIManager.Settings.scaling,
+            opacity = UIManager.Settings.opacity,
+            animations = UIManager.Settings.enableAnimations,
+            glowEffects = UIManager.Settings.enableGlowEffects,
+            cinematicMode = UIManager.Settings.cinematicMode
+        }
+    })
+    
+    HUD.Debug("NUI initialized with theme: " .. UIManager.CurrentTheme, "UI_MANAGER", "INFO")
 end
 
 ---Register UI Manager events
@@ -93,7 +153,42 @@ function UIManager.RegisterEvents()
         UIManager.SetCinematicMode(enabled)
     end)
     
-    HUD.Debug("^2UI Manager events registered^7", "UI_MANAGER")
+    -- UI scaling event
+    RegisterNetEvent('hud:client:setUIScale', function(scale)
+        UIManager.SetUIScale(scale)
+    end)
+    
+    -- UI opacity event
+    RegisterNetEvent('hud:client:setUIOpacity', function(opacity)
+        UIManager.SetUIOpacity(opacity)
+    end)
+    
+    -- Player state events
+    RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+        UIManager.OnPlayerLoaded()
+    end)
+    
+    RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+        UIManager.OnPlayerUnloaded()
+    end)
+    
+    -- Game state events
+    AddEventHandler('gameEventTriggered', function(name, args)
+        UIManager.OnGameEvent(name, args)
+    end)
+    
+    HUD.Debug("UI Manager events registered", "UI_MANAGER", "INFO")
+end
+
+---Setup update batching system
+function UIManager.SetupBatching()
+    if not UIManager.Settings.batchUpdates then return end
+    
+    UIManager.Performance.batchTimer = SetInterval(function()
+        UIManager.ProcessBatchedUpdates()
+    end, 100) -- Process batched updates every 100ms
+    
+    HUD.Debug("Update batching system initialized", "UI_MANAGER", "INFO")
 end
 
 -- ================================================================
@@ -102,16 +197,17 @@ end
 
 ---Set the current UI theme
 ---@param theme string Theme name
+---@return boolean success
 function UIManager.SetTheme(theme)
     if not Config.Theme.colors[theme] then
-        HUD.Debug(string.format("^1Theme '%s' not found, keeping current theme^7", theme), "UI_MANAGER")
+        HUD.Debug(string.format("Theme '%s' not found, keeping current theme", theme), "UI_MANAGER", "WARN")
         return false
     end
     
-    currentTheme = theme
+    UIManager.CurrentTheme = theme
     
     -- Update NUI with new theme
-    SendNUIMessage({
+    UIManager.SendNUIMessage({
         action = 'setTheme',
         theme = theme,
         colors = Config.Theme.colors[theme],
@@ -120,221 +216,421 @@ function UIManager.SetTheme(theme)
         layout = Config.Theme.layout
     })
     
-    HUD.Debug(string.format("^2Theme changed to: %s^7", theme), "UI_MANAGER")
+    HUD.Debug(string.format("Theme changed to: %s", theme), "UI_MANAGER", "INFO")
     
     -- Trigger theme change event for other modules
     TriggerEvent('hud:client:themeChanged', theme)
+    
+    -- Save theme preference
+    UIManager.SaveSetting('theme', theme)
     
     return true
 end
 
 ---Get the current theme
----@return string
-function UIManager.GetCurrentTheme()
-    return currentTheme
+---@return string theme
+function UIManager.GetTheme()
+    return UIManager.CurrentTheme
 end
 
 ---Get available themes
----@return table
+---@return table themes
 function UIManager.GetAvailableThemes()
-    return Config.Theme.available
+    return Config.Theme.available or {'neon-magenta', 'neon-cyan', 'synthwave', 'classic'}
 end
 
 -- ================================================================
--- MODULE VISIBILITY MANAGEMENT
+-- MODULE MANAGEMENT
 -- ================================================================
 
----Toggle visibility of a specific module
+---Toggle module visibility
 ---@param moduleName string Module name
----@param visible boolean Visibility state (optional, toggles if nil)
+---@param visible boolean Visibility state
 function UIManager.ToggleModule(moduleName, visible)
-    if not Config.Modules[moduleName] then
-        HUD.Debug(string.format("^1Module '%s' not found in config^7", moduleName), "UI_MANAGER")
-        return false
+    if type(visible) ~= "boolean" then
+        visible = not UIManager.ModuleVisibility[moduleName]
     end
     
-    -- If visible is nil, toggle current state
-    if visible == nil then
-        visible = not moduleVisibility[moduleName]
-    end
-    
-    moduleVisibility[moduleName] = visible
+    UIManager.ModuleVisibility[moduleName] = visible
     
     -- Send to NUI
-    SendNUIMessage({
+    UIManager.SendNUIMessage({
         action = 'toggleModule',
         module = moduleName,
         visible = visible
     })
     
-    HUD.Debug(string.format("^2Module '%s' visibility: %s^7", moduleName, visible and "shown" or "hidden"), "UI_MANAGER")
+    -- Notify module if it has a SetVisible function
+    if _G[moduleName:upper()] and _G[moduleName:upper()].SetVisible then
+        _G[moduleName:upper()].SetVisible(visible)
+    end
+    
+    HUD.Debug(string.format("Module %s visibility: %s", moduleName, visible and "visible" or "hidden"), "UI_MANAGER", "INFO")
     
     -- Trigger module visibility event
     TriggerEvent('hud:client:moduleVisibilityChanged', moduleName, visible)
     
-    return true
+    -- Save setting
+    UIManager.SaveSetting('moduleVisibility.' .. moduleName, visible)
 end
 
----Set visibility for all modules
----@param visible boolean
-function UIManager.SetHudVisibility(visible)
-    hudVisible = visible
+---Get module visibility
+---@param moduleName string Module name
+---@return boolean visible
+function UIManager.GetModuleVisibility(moduleName)
+    return UIManager.ModuleVisibility[moduleName] or false
+end
+
+---Update module data
+---@param moduleName string Module name
+---@param data table Module data
+function UIManager.UpdateModule(moduleName, data)
+    if not UIManager.ModuleVisibility[moduleName] then
+        return -- Don't update hidden modules
+    end
     
-    -- Send to NUI
-    SendNUIMessage({
+    -- Batch the update if batching is enabled
+    if UIManager.Settings.batchUpdates then
+        UIManager.BatchUpdate('updateModule', {
+            module = moduleName,
+            data = data
+        })
+    else
+        UIManager.SendNUIMessage({
+            action = 'updateModule',
+            module = moduleName,
+            data = data
+        })
+    end
+end
+
+-- ================================================================
+-- HUD VISIBILITY MANAGEMENT
+-- ================================================================
+
+---Set HUD visibility
+---@param visible boolean Visibility state
+function UIManager.SetHudVisibility(visible)
+    UIManager.HudVisible = visible
+    
+    -- Update all modules
+    for moduleName, _ in pairs(UIManager.ModuleVisibility) do
+        UIManager.ToggleModule(moduleName, visible)
+    end
+    
+    -- Send master visibility command to NUI
+    UIManager.SendNUIMessage({
         action = 'setHudVisibility',
         visible = visible
     })
     
-    HUD.Debug(string.format("^2HUD visibility: %s^7", visible and "shown" or "hidden"), "UI_MANAGER")
+    HUD.Debug(string.format("HUD visibility set to: %s", visible and "visible" or "hidden"), "UI_MANAGER", "INFO")
     
     -- Trigger HUD visibility event
     TriggerEvent('hud:client:hudVisibilityChanged', visible)
 end
 
----Get current HUD visibility state
----@return boolean
+---Get HUD visibility
+---@return boolean visible
 function UIManager.IsHudVisible()
-    return hudVisible
-end
-
----Get module visibility state
----@param moduleName string Module name (optional, returns all if nil)
----@return boolean|table
-function UIManager.GetModuleVisibility(moduleName)
-    if moduleName then
-        return moduleVisibility[moduleName] or false
-    else
-        return moduleVisibility
-    end
+    return UIManager.HudVisible
 end
 
 -- ================================================================
 -- CINEMATIC MODE
 -- ================================================================
 
----Set cinematic mode (black bars)
----@param enabled boolean
+---Set cinematic mode
+---@param enabled boolean Cinematic mode state
 function UIManager.SetCinematicMode(enabled)
-    cinematicMode = enabled
+    UIManager.CinematicMode = enabled
+    UIManager.State.cinematicMode = enabled
     
-    -- Send to NUI for black bars animation
-    SendNUIMessage({
+    -- Send to NUI
+    UIManager.SendNUIMessage({
         action = 'setCinematicMode',
         enabled = enabled
     })
     
-    -- Hide/show radar based on cinematic mode
-    DisplayRadar(not enabled)
+    -- Hide/show HUD based on cinematic mode
+    if enabled then
+        UIManager.SetHudVisibility(false)
+    else
+        UIManager.SetHudVisibility(true)
+    end
     
-    HUD.Debug(string.format("^2Cinematic mode: %s^7", enabled and "enabled" or "disabled"), "UI_MANAGER")
+    HUD.Debug(string.format("Cinematic mode: %s", enabled and "enabled" or "disabled"), "UI_MANAGER", "INFO")
     
     -- Trigger cinematic mode event
     TriggerEvent('hud:client:cinematicModeChanged', enabled)
-end
-
----Get current cinematic mode state
----@return boolean
-function UIManager.IsCinematicMode()
-    return cinematicMode
-end
-
--- ================================================================
--- SCALING & LAYOUT
--- ================================================================
-
----Set UI scaling factor
----@param scale number Scaling factor (0.5 - 2.0)
-function UIManager.SetScale(scale)
-    if scale < 0.5 or scale > 2.0 then
-        HUD.Debug("^1Invalid scale factor, must be between 0.5 and 2.0^7", "UI_MANAGER")
-        return false
-    end
     
-    SendNUIMessage({
-        action = 'setScale',
+    -- Save setting
+    UIManager.SaveSetting('cinematicMode', enabled)
+end
+
+---Get cinematic mode state
+---@return boolean enabled
+function UIManager.GetCinematicMode()
+    return UIManager.CinematicMode
+end
+
+-- ================================================================
+-- UI SETTINGS
+-- ================================================================
+
+---Set UI scale
+---@param scale number Scale factor (0.5-2.0)
+function UIManager.SetUIScale(scale)
+    if type(scale) ~= "number" then return end
+    
+    scale = math.max(0.5, math.min(2.0, scale)) -- Clamp between 0.5 and 2.0
+    UIManager.Settings.scaling = scale
+    UIManager.State.scaling = scale
+    
+    UIManager.SendNUIMessage({
+        action = 'setUIScale',
         scale = scale
     })
     
-    HUD.Debug(string.format("^2UI scale set to: %.1f^7", scale), "UI_MANAGER")
-    return true
+    HUD.Debug(string.format("UI scale set to: %.2f", scale), "UI_MANAGER", "INFO")
+    UIManager.SaveSetting('scaling', scale)
 end
 
 ---Set UI opacity
----@param opacity number Opacity value (0.1 - 1.0)
-function UIManager.SetOpacity(opacity)
-    if opacity < 0.1 or opacity > 1.0 then
-        HUD.Debug("^1Invalid opacity value, must be between 0.1 and 1.0^7", "UI_MANAGER")
-        return false
-    end
+---@param opacity number Opacity (0.0-1.0)
+function UIManager.SetUIOpacity(opacity)
+    if type(opacity) ~= "number" then return end
     
-    SendNUIMessage({
-        action = 'setOpacity',
+    opacity = math.max(0.0, math.min(1.0, opacity)) -- Clamp between 0.0 and 1.0
+    UIManager.Settings.opacity = opacity
+    UIManager.State.opacity = opacity
+    
+    UIManager.SendNUIMessage({
+        action = 'setUIOpacity',
         opacity = opacity
     })
     
-    HUD.Debug(string.format("^2UI opacity set to: %.1f^7", opacity), "UI_MANAGER")
-    return true
+    HUD.Debug(string.format("UI opacity set to: %.2f", opacity), "UI_MANAGER", "INFO")
+    UIManager.SaveSetting('opacity', opacity)
+end
+
+---Toggle animations
+---@param enabled boolean Animation state
+function UIManager.SetAnimations(enabled)
+    UIManager.Settings.enableAnimations = enabled
+    
+    UIManager.SendNUIMessage({
+        action = 'setAnimations',
+        enabled = enabled
+    })
+    
+    HUD.Debug(string.format("Animations: %s", enabled and "enabled" or "disabled"), "UI_MANAGER", "INFO")
+    UIManager.SaveSetting('animations', enabled)
+end
+
+---Toggle glow effects
+---@param enabled boolean Glow effects state
+function UIManager.SetGlowEffects(enabled)
+    UIManager.Settings.enableGlowEffects = enabled
+    
+    UIManager.SendNUIMessage({
+        action = 'setGlowEffects',
+        enabled = enabled
+    })
+    
+    HUD.Debug(string.format("Glow effects: %s", enabled and "enabled" or "disabled"), "UI_MANAGER", "INFO")
+    UIManager.SaveSetting('glowEffects', enabled)
 end
 
 -- ================================================================
--- UTILITY FUNCTIONS
+-- NUI COMMUNICATION
 -- ================================================================
 
----Send data update to a specific module
----@param moduleName string Module name
----@param data table Data to send
-function UIManager.UpdateModule(moduleName, data)
-    if not moduleVisibility[moduleName] then
-        return -- Module is hidden, no need to update
+---Send message to NUI with throttling
+---@param message table NUI message
+function UIManager.SendNUIMessage(message)
+    if not message or type(message) ~= "table" then return end
+    
+    -- Throttle updates if enabled
+    if UIManager.Settings.throttleUpdates then
+        local currentTime = GetGameTimer()
+        if currentTime - UIManager.Performance.lastNUIUpdate < 16 then -- ~60 FPS
+            return
+        end
+        UIManager.Performance.lastNUIUpdate = currentTime
     end
     
-    SendNUIMessage({
-        action = 'updateModule',
-        module = moduleName,
-        data = data
+    SendNUIMessage(message)
+    UIManager.Performance.nuiMessageCount = UIManager.Performance.nuiMessageCount + 1
+end
+
+---Batch update for performance
+---@param action string Action type
+---@param data table Action data
+function UIManager.BatchUpdate(action, data)
+    if not UIManager.Performance.batchedUpdates[action] then
+        UIManager.Performance.batchedUpdates[action] = {}
+    end
+    
+    table.insert(UIManager.Performance.batchedUpdates[action], data)
+end
+
+---Process all batched updates
+function UIManager.ProcessBatchedUpdates()
+    for action, updates in pairs(UIManager.Performance.batchedUpdates) do
+        if #updates > 0 then
+            UIManager.SendNUIMessage({
+                action = 'batchUpdate',
+                updateType = action,
+                updates = updates
+            })
+            
+            UIManager.Performance.batchedUpdates[action] = {}
+        end
+    end
+end
+
+-- ================================================================
+-- EVENT HANDLERS
+-- ================================================================
+
+---Handle player loaded event
+function UIManager.OnPlayerLoaded()
+    HUD.Debug("Player loaded - refreshing UI", "UI_MANAGER", "INFO")
+    
+    -- Refresh UI state
+    UIManager.SetHudVisibility(true)
+    UIManager.InitializeNUI()
+    
+    -- Load saved settings
+    UIManager.LoadSettings()
+end
+
+---Handle player unloaded event
+function UIManager.OnPlayerUnloaded()
+    HUD.Debug("Player unloaded - hiding UI", "UI_MANAGER", "INFO")
+    UIManager.SetHudVisibility(false)
+end
+
+---Handle game events
+---@param eventName string Event name
+---@param args table Event arguments
+function UIManager.OnGameEvent(eventName, args)
+    if eventName == 'CEventNetworkPlayerEnteredVehicle' then
+        UIManager.State.isInVehicle = true
+        TriggerEvent('hud:client:playerEnteredVehicle')
+    elseif eventName == 'CEventNetworkPlayerLeftVehicle' then
+        UIManager.State.isInVehicle = false
+        TriggerEvent('hud:client:playerLeftVehicle')
+    end
+end
+
+-- ================================================================
+-- SETTINGS PERSISTENCE
+-- ================================================================
+
+---Save a setting
+---@param key string Setting key
+---@param value any Setting value
+function UIManager.SaveSetting(key, value)
+    UIManager.SendNUIMessage({
+        action = 'saveSetting',
+        key = key,
+        value = value
     })
 end
 
----Get UI Manager status information
----@return table
-function UIManager.GetStatus()
-    return {
-        initialized = isInitialized,
-        theme = currentTheme,
-        hudVisible = hudVisible,
-        cinematicMode = cinematicMode,
-        moduleVisibility = moduleVisibility
-    }
+---Load all settings
+function UIManager.LoadSettings()
+    UIManager.SendNUIMessage({
+        action = 'loadSettings'
+    })
 end
 
 -- ================================================================
--- EXPORT FUNCTIONS
+-- PUBLIC API
 -- ================================================================
 
--- Export UIManager functions for other modules
-_G.UIManager = UIManager
+---Get current UI state
+---@return table state
+function UIManager.GetState()
+    return {
+        initialized = UIManager.Initialized,
+        hudVisible = UIManager.HudVisible,
+        cinematicMode = UIManager.CinematicMode,
+        theme = UIManager.CurrentTheme,
+        scaling = UIManager.Settings.scaling,
+        opacity = UIManager.Settings.opacity,
+        animations = UIManager.Settings.enableAnimations,
+        glowEffects = UIManager.Settings.enableGlowEffects,
+        moduleVisibility = UIManager.ModuleVisibility
+    }
+end
 
--- Register module with HUD system
-if HUD then
-    HUD.RegisterModule('ui_manager', UIManager)
+---Get performance statistics
+---@return table performance
+function UIManager.GetPerformanceStats()
+    return {
+        nuiMessageCount = UIManager.Performance.nuiMessageCount,
+        lastNUIUpdate = UIManager.Performance.lastNUIUpdate,
+        batchedUpdatesCount = table.length(UIManager.Performance.batchedUpdates),
+        initialized = UIManager.Initialized
+    }
+end
+
+---Force refresh all UI elements
+function UIManager.ForceRefresh()
+    UIManager.InitializeNUI()
+    
+    -- Refresh all visible modules
+    for moduleName, visible in pairs(UIManager.ModuleVisibility) do
+        if visible and _G[moduleName:upper()] and _G[moduleName:upper()].ForceUpdate then
+            _G[moduleName:upper()].ForceUpdate()
+        end
+    end
+    
+    HUD.Debug("UI Manager force refresh completed", "UI_MANAGER", "INFO")
 end
 
 -- ================================================================
 -- CLEANUP
 -- ================================================================
 
-AddEventHandler('onResourceStop', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then return end
+---Cleanup function
+function UIManager.Cleanup()
+    if UIManager.Performance.batchTimer then
+        ClearInterval(UIManager.Performance.batchTimer)
+    end
     
-    if isInitialized then
-        HUD.Debug("^3UI Manager shutting down^7", "UI_MANAGER")
-        
-        -- Reset NUI
-        SendNUIMessage({
-            action = 'shutdown'
-        })
-        
-        isInitialized = false
+    UIManager.Initialized = false
+    HUD.Debug("UI Manager cleaned up", "UI_MANAGER", "INFO")
+end
+
+-- Cleanup on resource stop
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() == resourceName then
+        UIManager.Cleanup()
     end
 end)
+
+-- ================================================================
+-- UTILITY FUNCTIONS
+-- ================================================================
+
+---Check if a table is empty
+---@param t table Table to check
+---@return boolean empty
+function table.length(t)
+    local count = 0
+    for _ in pairs(t) do count = count + 1 end
+    return count
+end
+
+-- ================================================================
+-- MODULE EXPORT
+-- ================================================================
+
+-- Make UIManager available globally
+_G.UIManager = UIManager
+
+HUD.Debug("UI Manager module loaded", "UI_MANAGER", "INFO")

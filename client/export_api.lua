@@ -1,408 +1,480 @@
 -- ================================================================
--- QBCore HUD - Export API Module
+-- QBCore HUD - Export API System (COMPLETE)
 -- Version: 3.0.0
--- Description: External resource integration and backwards compatibility
+-- Description: Complete export API for external resource integration
 -- ================================================================
 
 local QBCore = exports['qb-core']:GetCoreObject()
 
-local ExportAPI = {}
-local isInitialized = false
+-- Export API System
+ExportAPI = ExportAPI or {}
+ExportAPI.Initialized = false
+ExportAPI.EnableLogging = Config.Debug or false
+ExportAPI.CustomModules = {}
+ExportAPI.Callbacks = {}
+
+-- API Statistics
+ExportAPI.Stats = {
+    totalCalls = 0,
+    moduleUpdates = 0,
+    themeChanges = 0,
+    visibilityToggles = 0,
+    customModules = 0,
+    errors = 0
+}
 
 -- ================================================================
--- INITIALIZATION
+-- INITIALIZATION SYSTEM
 -- ================================================================
 
----Initialize the Export API module
+---Initialize the Export API system
+---@return boolean success
 function ExportAPI.Init()
-    if isInitialized then
-        HUD.Debug("^3Export API already initialized^7", "EXPORT_API")
+    if ExportAPI.Initialized then
+        HUD.Debug("Export API already initialized", "EXPORT_API", "WARN")
         return true
     end
     
-    HUD.Debug("^2Initializing Export API^7", "EXPORT_API")
+    HUD.Debug("Initializing Export API system...", "EXPORT_API", "INFO")
     
-    -- Register callbacks for external resources
-    ExportAPI.RegisterCallbacks()
+    -- Load configuration
+    ExportAPI.LoadConfiguration()
     
-    isInitialized = true
-    HUD.Debug("^2Export API initialized successfully^7", "EXPORT_API")
+    -- Register all exports
+    ExportAPI.RegisterAllExports()
+    
+    -- Setup event handlers
+    ExportAPI.RegisterEvents()
+    
+    ExportAPI.Initialized = true
+    HUD.Debug("Export API system initialized successfully", "EXPORT_API", "INFO")
     
     return true
 end
 
----Register QBCore callbacks for external access
-function ExportAPI.RegisterCallbacks()
-    -- Get current HUD status
-    QBCore.Functions.CreateCallback('hud:getStatus', function(cb)
-        local status = {}
-        
-        -- Collect status from all modules
-        if Health and Health.GetStatus then
-            status.health = Health.GetStatus()
-        end
-        
-        if Status and Status.GetStatus then
-            status.status = Status.GetStatus()
-        end
-        
-        if Time and Time.GetTimeData then
-            status.time = Time.GetTimeData()
-        end
-        
-        if UIManager and UIManager.GetStatus then
-            status.ui = UIManager.GetStatus()
-        end
-        
-        cb(status)
+---Load Export API configuration
+function ExportAPI.LoadConfiguration()
+    local config = Config.Modules.export_api or {}
+    
+    ExportAPI.EnableLogging = config.enableLogging or Config.Debug or false
+    
+    -- Load component settings
+    ExportAPI.Components = {
+        visibility = config.components and config.components.visibility or true,
+        themes = config.components and config.components.themes or true,
+        modules = config.components and config.components.modules or true,
+        callbacks = config.components and config.components.callbacks or true,
+        events = config.components and config.components.events or true
+    }
+    
+    HUD.Debug("Export API configuration loaded", "EXPORT_API", "INFO")
+end
+
+---Register event handlers
+function ExportAPI.RegisterEvents()
+    -- Module initialization events
+    RegisterNetEvent('hud:client:initialized', function()
+        ExportAPI.OnHUDInitialized()
     end)
     
-    -- Get module specific status
-    QBCore.Functions.CreateCallback('hud:getModuleStatus', function(cb, moduleName)
-        local moduleStatus = nil
-        
-        if moduleName == 'health' and Health and Health.GetStatus then
-            moduleStatus = Health.GetStatus()
-        elseif moduleName == 'status' and Status and Status.GetStatus then
-            moduleStatus = Status.GetStatus()
-        elseif moduleName == 'time' and Time and Time.GetTimeData then
-            moduleStatus = Time.GetTimeData()
-        elseif moduleName == 'ui' and UIManager and UIManager.GetStatus then
-            moduleStatus = UIManager.GetStatus()
-        end
-        
-        cb(moduleStatus)
-    end)
+    HUD.Debug("Export API events registered", "EXPORT_API", "INFO")
+end
+
+---Handle HUD initialization
+function ExportAPI.OnHUDInitialized()
+    HUD.Debug("HUD initialized - Export API ready", "EXPORT_API", "INFO")
     
-    HUD.Debug("^2Export callbacks registered^7", "EXPORT_API")
+    -- Trigger event for external resources
+    TriggerEvent('hud:api:ready')
 end
 
 -- ================================================================
--- HUD VISIBILITY EXPORTS
+-- CORE EXPORT FUNCTIONS
 -- ================================================================
 
----Set overall HUD visibility
----@param visible boolean
+---Set HUD visibility
+---@param visible boolean Visibility state
+---@return boolean success
 exports('SetHudVisibility', function(visible)
+    ExportAPI.LogCall('SetHudVisibility', { visible = visible })
+    
     if type(visible) ~= "boolean" then
-        HUD.Debug("^1SetHudVisibility: Invalid parameter type^7", "EXPORT_API")
+        ExportAPI.LogError('SetHudVisibility', 'Invalid parameter type - expected boolean')
         return false
     end
     
     if UIManager and UIManager.SetHudVisibility then
         UIManager.SetHudVisibility(visible)
-        HUD.Debug(string.format("^2HUD visibility set to: %s^7", visible and "visible" or "hidden"), "EXPORT_API")
+        ExportAPI.Stats.visibilityToggles = ExportAPI.Stats.visibilityToggles + 1
         return true
+    else
+        ExportAPI.LogError('SetHudVisibility', 'UIManager not available')
+        return false
     end
-    
-    HUD.Debug("^1SetHudVisibility: UIManager not available^7", "EXPORT_API")
-    return false
 end)
 
----Get current HUD visibility state
+---Get HUD visibility
+---@return boolean visible
 exports('GetHudVisibility', function()
+    ExportAPI.LogCall('GetHudVisibility')
+    
     if UIManager and UIManager.IsHudVisible then
         return UIManager.IsHudVisible()
+    else
+        ExportAPI.LogError('GetHudVisibility', 'UIManager not available')
+        return false
     end
-    return true -- Default to visible if UIManager not available
 end)
 
----Toggle HUD visibility
-exports('ToggleHud', function()
-    if UIManager and UIManager.IsHudVisible and UIManager.SetHudVisibility then
-        local currentState = UIManager.IsHudVisible()
-        UIManager.SetHudVisibility(not currentState)
-        return not currentState
+---Set HUD theme
+---@param theme string Theme name
+---@return boolean success
+exports('SetTheme', function(theme)
+    ExportAPI.LogCall('SetTheme', { theme = theme })
+    
+    if type(theme) ~= "string" then
+        ExportAPI.LogError('SetTheme', 'Invalid parameter type - expected string')
+        return false
     end
-    return false
+    
+    if not ExportAPI.Components.themes then
+        ExportAPI.LogError('SetTheme', 'Theme component disabled')
+        return false
+    end
+    
+    if UIManager and UIManager.SetTheme then
+        local success = UIManager.SetTheme(theme)
+        if success then
+            ExportAPI.Stats.themeChanges = ExportAPI.Stats.themeChanges + 1
+        end
+        return success
+    else
+        ExportAPI.LogError('SetTheme', 'UIManager not available')
+        return false
+    end
+end)
+
+---Get current theme
+---@return string theme
+exports('GetTheme', function()
+    ExportAPI.LogCall('GetTheme')
+    
+    if UIManager and UIManager.GetTheme then
+        return UIManager.GetTheme()
+    else
+        ExportAPI.LogError('GetTheme', 'UIManager not available')
+        return 'neon-magenta'
+    end
+end)
+
+---Get available themes
+---@return table themes
+exports('GetAvailableThemes', function()
+    ExportAPI.LogCall('GetAvailableThemes')
+    
+    if UIManager and UIManager.GetAvailableThemes then
+        return UIManager.GetAvailableThemes()
+    else
+        return Config.Theme.available or {'neon-magenta', 'neon-cyan', 'synthwave', 'classic'}
+    end
 end)
 
 -- ================================================================
--- MODULE CONTROL EXPORTS
+-- MODULE MANAGEMENT EXPORTS
 -- ================================================================
 
----Toggle specific module visibility
----@param moduleName string
----@param visible boolean
+---Toggle module visibility
+---@param moduleName string Module name
+---@param visible boolean Visibility state
+---@return boolean success
 exports('ToggleModule', function(moduleName, visible)
+    ExportAPI.LogCall('ToggleModule', { module = moduleName, visible = visible })
+    
     if type(moduleName) ~= "string" then
-        HUD.Debug("^1ToggleModule: Invalid module name^7", "EXPORT_API")
+        ExportAPI.LogError('ToggleModule', 'Invalid moduleName type - expected string')
         return false
     end
     
     if visible ~= nil and type(visible) ~= "boolean" then
-        HUD.Debug("^1ToggleModule: Invalid visible parameter^7", "EXPORT_API")
+        ExportAPI.LogError('ToggleModule', 'Invalid visible type - expected boolean or nil')
+        return false
+    end
+    
+    if not ExportAPI.Components.modules then
+        ExportAPI.LogError('ToggleModule', 'Module component disabled')
         return false
     end
     
     if UIManager and UIManager.ToggleModule then
         UIManager.ToggleModule(moduleName, visible)
-        HUD.Debug(string.format("^2Module '%s' toggled^7", moduleName), "EXPORT_API")
+        ExportAPI.Stats.visibilityToggles = ExportAPI.Stats.visibilityToggles + 1
         return true
+    else
+        ExportAPI.LogError('ToggleModule', 'UIManager not available')
+        return false
     end
-    
-    HUD.Debug("^1ToggleModule: UIManager not available^7", "EXPORT_API")
-    return false
 end)
 
----Get module visibility state
----@param moduleName string
+---Get module visibility
+---@param moduleName string Module name
+---@return boolean visible
 exports('GetModuleVisibility', function(moduleName)
+    ExportAPI.LogCall('GetModuleVisibility', { module = moduleName })
+    
+    if type(moduleName) ~= "string" then
+        ExportAPI.LogError('GetModuleVisibility', 'Invalid moduleName type - expected string')
+        return false
+    end
+    
     if UIManager and UIManager.GetModuleVisibility then
         return UIManager.GetModuleVisibility(moduleName)
+    else
+        ExportAPI.LogError('GetModuleVisibility', 'UIManager not available')
+        return false
     end
-    return false
 end)
 
----Show specific module
----@param moduleName string
-exports('ShowModule', function(moduleName)
-    return exports['qb-hud']:ToggleModule(moduleName, true)
-end)
-
----Hide specific module
----@param moduleName string
-exports('HideModule', function(moduleName)
-    return exports['qb-hud']:ToggleModule(moduleName, false)
-end)
-
--- ================================================================
--- THEME CONTROL EXPORTS
--- ================================================================
-
----Set HUD theme
----@param themeName string
-exports('SetTheme', function(themeName)
-    if type(themeName) ~= "string" then
-        HUD.Debug("^1SetTheme: Invalid theme name^7", "EXPORT_API")
+---Update module status
+---@param moduleName string Module name
+---@param data table Status data
+---@return boolean success
+exports('UpdateStatus', function(moduleName, data)
+    ExportAPI.LogCall('UpdateStatus', { module = moduleName, dataType = type(data) })
+    
+    if type(moduleName) ~= "string" then
+        ExportAPI.LogError('UpdateStatus', 'Invalid moduleName type - expected string')
         return false
     end
     
-    if UIManager and UIManager.SetTheme then
-        return UIManager.SetTheme(themeName)
-    end
-    
-    HUD.Debug("^1SetTheme: UIManager not available^7", "EXPORT_API")
-    return false
-end)
-
----Get current theme
-exports('GetTheme', function()
-    if UIManager and UIManager.GetCurrentTheme then
-        return UIManager.GetCurrentTheme()
-    end
-    return Config.Theme.current or 'neon-magenta'
-end)
-
----Get available themes
-exports('GetAvailableThemes', function()
-    if UIManager and UIManager.GetAvailableThemes then
-        return UIManager.GetAvailableThemes()
-    end
-    return Config.Theme.available or {'neon-magenta', 'neon-cyan', 'classic'}
-end)
-
--- ================================================================
--- STATUS UPDATE EXPORTS
--- ================================================================
-
----Update health status
----@param data table
-exports('UpdateHealth', function(data)
     if type(data) ~= "table" then
-        HUD.Debug("^1UpdateHealth: Invalid data parameter^7", "EXPORT_API")
+        ExportAPI.LogError('UpdateStatus', 'Invalid data type - expected table')
         return false
     end
     
-    if Health and Health.Update then
-        Health.Update(data)
+    if UIManager and UIManager.UpdateModule then
+        UIManager.UpdateModule(moduleName, data)
+        ExportAPI.Stats.moduleUpdates = ExportAPI.Stats.moduleUpdates + 1
         return true
+    else
+        ExportAPI.LogError('UpdateStatus', 'UIManager not available')
+        return false
     end
-    
-    return false
 end)
 
----Update status indicators
----@param data table
-exports('UpdateStatus', function(data)
-    if type(data) ~= "table" then
-        HUD.Debug("^1UpdateStatus: Invalid data parameter^7", "EXPORT_API")
+-- ================================================================
+-- ADVANCED EXPORTS
+-- ================================================================
+
+---Set UI scale
+---@param scale number Scale factor (0.5-2.0)
+---@return boolean success
+exports('SetUIScale', function(scale)
+    ExportAPI.LogCall('SetUIScale', { scale = scale })
+    
+    if type(scale) ~= "number" then
+        ExportAPI.LogError('SetUIScale', 'Invalid scale type - expected number')
         return false
     end
     
-    if Status and Status.Update then
-        Status.Update(data)
-        return true
-    end
-    
-    return false
-end)
-
----Update time display
----@param data table
-exports('UpdateTime', function(data)
-    if type(data) ~= "table" then
-        HUD.Debug("^1UpdateTime: Invalid data parameter^7", "EXPORT_API")
+    if scale < 0.5 or scale > 2.0 then
+        ExportAPI.LogError('SetUIScale', 'Scale out of range - expected 0.5-2.0')
         return false
     end
     
-    if Time and Time.Update then
-        Time.Update(data)
+    if UIManager and UIManager.SetUIScale then
+        UIManager.SetUIScale(scale)
         return true
+    else
+        ExportAPI.LogError('SetUIScale', 'UIManager not available')
+        return false
+    end
+end)
+
+---Set UI opacity
+---@param opacity number Opacity (0.0-1.0)
+---@return boolean success
+exports('SetUIOpacity', function(opacity)
+    ExportAPI.LogCall('SetUIOpacity', { opacity = opacity })
+    
+    if type(opacity) ~= "number" then
+        ExportAPI.LogError('SetUIOpacity', 'Invalid opacity type - expected number')
+        return false
     end
     
-    return false
-end)
-
--- ================================================================
--- CONVENIENCE EXPORTS (Common Use Cases)
--- ================================================================
-
----Set player health value
----@param health number (0-100)
-exports('SetHealth', function(health)
-    local healthValue = tonumber(health)
-    if not healthValue then return false end
+    if opacity < 0.0 or opacity > 1.0 then
+        ExportAPI.LogError('SetUIOpacity', 'Opacity out of range - expected 0.0-1.0')
+        return false
+    end
     
-    return exports['qb-hud']:UpdateHealth({health = healthValue})
+    if UIManager and UIManager.SetUIOpacity then
+        UIManager.SetUIOpacity(opacity)
+        return true
+    else
+        ExportAPI.LogError('SetUIOpacity', 'UIManager not available')
+        return false
+    end
 end)
-
----Set player armor value
----@param armor number (0-100)
-exports('SetArmor', function(armor)
-    local armorValue = tonumber(armor)
-    if not armorValue then return false end
-    
-    return exports['qb-hud']:UpdateHealth({armor = armorValue})
-end)
-
----Set player hunger value
----@param hunger number (0-100)
-exports('SetHunger', function(hunger)
-    local hungerValue = tonumber(hunger)
-    if not hungerValue then return false end
-    
-    return exports['qb-hud']:UpdateHealth({hunger = hungerValue})
-end)
-
----Set player thirst value
----@param thirst number (0-100)
-exports('SetThirst', function(thirst)
-    local thirstValue = tonumber(thirst)
-    if not thirstValue then return false end
-    
-    return exports['qb-hud']:UpdateHealth({thirst = thirstValue})
-end)
-
----Set player stress value
----@param stress number (0-100)
-exports('SetStress', function(stress)
-    local stressValue = tonumber(stress)
-    if not stressValue then return false end
-    
-    return exports['qb-hud']:UpdateHealth({stress = stressValue})
-end)
-
----Set voice level
----@param level number (1-4)
-exports('SetVoiceLevel', function(level)
-    local voiceLevel = tonumber(level)
-    if not voiceLevel then return false end
-    
-    return exports['qb-hud']:UpdateStatus({voice = {level = voiceLevel}})
-end)
-
----Set talking status
----@param talking boolean
-exports('SetTalking', function(talking)
-    if type(talking) ~= "boolean" then return false end
-    
-    return exports['qb-hud']:UpdateStatus({voice = {talking = talking}})
-end)
-
----Set radio active status
----@param active boolean
-exports('SetRadioActive', function(active)
-    if type(active) ~= "boolean" then return false end
-    
-    return exports['qb-hud']:UpdateStatus({voice = {radioActive = active}})
-end)
-
----Set armed status
----@param armed boolean
-exports('SetArmed', function(armed)
-    if type(armed) ~= "boolean" then return false end
-    
-    return exports['qb-hud']:UpdateStatus({armed = armed})
-end)
-
--- ================================================================
--- CINEMATIC MODE EXPORTS
--- ================================================================
 
 ---Set cinematic mode
----@param enabled boolean
+---@param enabled boolean Cinematic mode state
+---@return boolean success
 exports('SetCinematicMode', function(enabled)
+    ExportAPI.LogCall('SetCinematicMode', { enabled = enabled })
+    
     if type(enabled) ~= "boolean" then
-        HUD.Debug("^1SetCinematicMode: Invalid parameter type^7", "EXPORT_API")
+        ExportAPI.LogError('SetCinematicMode', 'Invalid enabled type - expected boolean')
         return false
     end
     
     if UIManager and UIManager.SetCinematicMode then
         UIManager.SetCinematicMode(enabled)
         return true
+    else
+        ExportAPI.LogError('SetCinematicMode', 'UIManager not available')
+        return false
     end
-    
-    return false
 end)
 
 ---Get cinematic mode state
+---@return boolean enabled
 exports('GetCinematicMode', function()
-    if UIManager and UIManager.IsCinematicMode then
-        return UIManager.IsCinematicMode()
+    ExportAPI.LogCall('GetCinematicMode')
+    
+    if UIManager and UIManager.GetCinematicMode then
+        return UIManager.GetCinematicMode()
+    else
+        ExportAPI.LogError('GetCinematicMode', 'UIManager not available')
+        return false
     end
-    return false
-end)
-
----Toggle cinematic mode
-exports('ToggleCinematicMode', function()
-    if UIManager and UIManager.IsCinematicMode and UIManager.SetCinematicMode then
-        local currentState = UIManager.IsCinematicMode()
-        UIManager.SetCinematicMode(not currentState)
-        return not currentState
-    end
-    return false
 end)
 
 -- ================================================================
--- BACKWARDS COMPATIBILITY (Legacy Export Names)
+-- HEALTH SYSTEM EXPORTS
 -- ================================================================
 
--- Legacy QBCore exports for backwards compatibility
-exports('ToggleAirHud', function()
-    -- Legacy function - now just toggles entire HUD
-    return exports['qb-hud']:ToggleHud()
+---Get health status
+---@return table status
+exports('GetHealthStatus', function()
+    ExportAPI.LogCall('GetHealthStatus')
+    
+    if Health and Health.GetStatus then
+        return Health.GetStatus()
+    else
+        ExportAPI.LogError('GetHealthStatus', 'Health module not available')
+        return {}
+    end
 end)
 
-exports('UpdateNeeds', function(hunger, thirst)
-    local data = {}
-    if hunger then data.hunger = hunger end
-    if thirst then data.thirst = thirst end
-    return exports['qb-hud']:UpdateHealth(data)
+---Update health values
+---@param healthData table Health data
+---@return boolean success
+exports('UpdateHealth', function(healthData)
+    ExportAPI.LogCall('UpdateHealth', { dataType = type(healthData) })
+    
+    if type(healthData) ~= "table" then
+        ExportAPI.LogError('UpdateHealth', 'Invalid healthData type - expected table')
+        return false
+    end
+    
+    -- Validate health data
+    local validFields = {'health', 'armor', 'hunger', 'thirst', 'stress', 'stamina', 'oxygen'}
+    local validData = {}
+    
+    for _, field in ipairs(validFields) do
+        if healthData[field] and type(healthData[field]) == "number" then
+            validData[field] = math.max(0, math.min(100, healthData[field]))
+        end
+    end
+    
+    if next(validData) == nil then
+        ExportAPI.LogError('UpdateHealth', 'No valid health fields provided')
+        return false
+    end
+    
+    return exports['qb-hud']:UpdateStatus('health', validData)
 end)
 
-exports('UpdateStress', function(stress)
-    return exports['qb-hud']:SetStress(stress)
+-- ================================================================
+-- VEHICLE SYSTEM EXPORTS
+-- ================================================================
+
+---Show vehicle HUD
+---@param vehicleData table Vehicle data
+---@return boolean success
+exports('ShowVehicleHUD', function(vehicleData)
+    ExportAPI.LogCall('ShowVehicleHUD', { dataType = type(vehicleData) })
+    
+    if type(vehicleData) ~= "table" then
+        vehicleData = {}
+    end
+    
+    return exports['qb-hud']:UpdateStatus('vehicle', vehicleData)
 end)
 
-exports('ShowAccounts', function()
-    -- Legacy function - trigger money display
-    TriggerEvent('hud:client:ShowAccounts')
+---Hide vehicle HUD
+---@return boolean success
+exports('HideVehicleHUD', function()
+    ExportAPI.LogCall('HideVehicleHUD')
+    return exports['qb-hud']:ToggleModule('vehicle', false)
 end)
 
-exports('OnMoneyChange', function(type, amount, newAmount)
-    -- Legacy function - trigger money change
-    TriggerEvent('hud:client:OnMoneyChange', type, amount, newAmount)
+-- ================================================================
+-- NOTIFICATION SYSTEM EXPORTS
+-- ================================================================
+
+---Show custom message
+---@param id string Message ID
+---@param text string Message text
+---@param duration number Duration in milliseconds
+---@param type string Message type ('info', 'success', 'warning', 'error')
+---@return boolean success
+exports('ShowCustomMessage', function(id, text, duration, type)
+    ExportAPI.LogCall('ShowCustomMessage', { id = id, text = text, duration = duration, type = type })
+    
+    if type(id) ~= "string" or type(text) ~= "string" then
+        ExportAPI.LogError('ShowCustomMessage', 'Invalid id or text type - expected string')
+        return false
+    end
+    
+    duration = duration or 3000
+    type = type or 'info'
+    
+    if UIManager and UIManager.SendNUIMessage then
+        UIManager.SendNUIMessage({
+            action = 'showCustomMessage',
+            id = id,
+            text = text,
+            duration = duration,
+            type = type
+        })
+        return true
+    else
+        ExportAPI.LogError('ShowCustomMessage', 'UIManager not available')
+        return false
+    end
+end)
+
+---Hide custom message
+---@param id string Message ID
+---@return boolean success
+exports('HideCustomMessage', function(id)
+    ExportAPI.LogCall('HideCustomMessage', { id = id })
+    
+    if type(id) ~= "string" then
+        ExportAPI.LogError('HideCustomMessage', 'Invalid id type - expected string')
+        return false
+    end
+    
+    if UIManager and UIManager.SendNUIMessage then
+        UIManager.SendNUIMessage({
+            action = 'hideCustomMessage',
+            id = id
+        })
+        return true
+    else
+        ExportAPI.LogError('HideCustomMessage', 'UIManager not available')
+        return false
+    end
 end)
 
 -- ================================================================
@@ -412,37 +484,72 @@ end)
 ---Register a custom module (for external resources)
 ---@param name string Module name
 ---@param config table Module configuration
+---@return boolean success
 exports('RegisterCustomModule', function(name, config)
+    ExportAPI.LogCall('RegisterCustomModule', { name = name, configType = type(config) })
+    
     if type(name) ~= "string" or type(config) ~= "table" then
-        HUD.Debug("^1RegisterCustomModule: Invalid parameters^7", "EXPORT_API")
+        ExportAPI.LogError('RegisterCustomModule', 'Invalid parameters - expected string, table')
         return false
     end
     
     -- Basic validation
     if not config.enabled or not config.position then
-        HUD.Debug("^1RegisterCustomModule: Missing required config fields^7", "EXPORT_API")
+        ExportAPI.LogError('RegisterCustomModule', 'Missing required config fields (enabled, position)')
         return false
     end
     
-    -- Add to module configuration
+    -- Add to custom modules registry
+    ExportAPI.CustomModules[name] = {
+        config = config,
+        registered = GetGameTimer(),
+        resource = GetInvokingResource()
+    }
+    
+    -- Add to global module configuration
     Config.Modules[name] = config
     
-    HUD.Debug(string.format("^2Custom module '%s' registered^7", name), "EXPORT_API")
+    -- Initialize module if UI is ready
+    if UIManager and UIManager.ModuleVisibility then
+        UIManager.ModuleVisibility[name] = config.enabled
+        UIManager.ToggleModule(name, config.enabled)
+    end
+    
+    ExportAPI.Stats.customModules = ExportAPI.Stats.customModules + 1
+    HUD.Debug(string.format("Custom module '%s' registered by %s", name, GetInvokingResource() or "unknown"), "EXPORT_API", "INFO")
+    
     return true
 end)
 
 ---Unregister a custom module
 ---@param name string Module name
+---@return boolean success
 exports('UnregisterCustomModule', function(name)
-    if type(name) ~= "string" then return false end
+    ExportAPI.LogCall('UnregisterCustomModule', { name = name })
     
-    if Config.Modules[name] then
-        Config.Modules[name] = nil
-        HUD.Debug(string.format("^2Custom module '%s' unregistered^7", name), "EXPORT_API")
-        return true
+    if type(name) ~= "string" then
+        ExportAPI.LogError('UnregisterCustomModule', 'Invalid name type - expected string')
+        return false
     end
     
-    return false
+    if ExportAPI.CustomModules[name] then
+        -- Hide module first
+        if UIManager and UIManager.ToggleModule then
+            UIManager.ToggleModule(name, false)
+        end
+        
+        -- Remove from registries
+        ExportAPI.CustomModules[name] = nil
+        Config.Modules[name] = nil
+        
+        ExportAPI.Stats.customModules = math.max(0, ExportAPI.Stats.customModules - 1)
+        HUD.Debug(string.format("Custom module '%s' unregistered", name), "EXPORT_API", "INFO")
+        
+        return true
+    else
+        ExportAPI.LogError('UnregisterCustomModule', string.format("Module '%s' not found", name))
+        return false
+    end
 end)
 
 -- ================================================================
@@ -450,120 +557,210 @@ end)
 -- ================================================================
 
 ---Get full HUD status
+---@return table status
 exports('GetStatus', function()
+    ExportAPI.LogCall('GetStatus')
+    
     local status = {
-        initialized = isInitialized,
+        initialized = ExportAPI.Initialized,
         modules = {},
         theme = exports['qb-hud']:GetTheme(),
         visible = exports['qb-hud']:GetHudVisibility(),
-        cinematicMode = exports['qb-hud']:GetCinematicMode()
+        cinematicMode = exports['qb-hud']:GetCinematicMode(),
+        customModules = table.keys(ExportAPI.CustomModules),
+        stats = ExportAPI.Stats
     }
     
     -- Get individual module statuses
-    for moduleName, _ in pairs(Config.Modules) do
-        status.modules[moduleName] = exports['qb-hud']:GetModuleVisibility(moduleName)
+    if UIManager and UIManager.ModuleVisibility then
+        for moduleName, visible in pairs(UIManager.ModuleVisibility) do
+            status.modules[moduleName] = visible
+        end
     end
     
     return status
 end)
 
 ---Force update all modules
+---@return boolean success
 exports('ForceUpdate', function()
+    ExportAPI.LogCall('ForceUpdate')
+    
     local updated = 0
     
-    if Health and Health.ForceUpdate then
-        Health.ForceUpdate()
-        updated = updated + 1
-    end
+    -- Update core modules
+    local coreModules = {'Health', 'Status', 'Time', 'Location', 'Vehicle', 'GPSHUD'}
     
-    if Status and Status.ForceUpdate then
-        Status.ForceUpdate()
-        updated = updated + 1
-    end
-    
-    if Time and Time.ForceUpdate then
-        Time.ForceUpdate()
-        updated = updated + 1
-    end
-    
-    HUD.Debug(string.format("^2Force updated %d modules^7", updated), "EXPORT_API")
-    return updated > 0
-end)
-
----Reset HUD to default settings
-exports('Reset', function()
-    local reset = 0
-    
-    -- Reset all modules
-    for moduleName, _ in pairs(Config.Modules) do
-        if exports['qb-hud']:ToggleModule(moduleName, true) then
-            reset = reset + 1
+    for _, moduleName in ipairs(coreModules) do
+        local moduleTable = _G[moduleName]
+        if moduleTable and moduleTable.ForceUpdate then
+            moduleTable.ForceUpdate()
+            updated = updated + 1
         end
     end
     
-    -- Reset theme
-    exports['qb-hud']:SetTheme(Config.Theme.current)
+    -- Update UI Manager
+    if UIManager and UIManager.ForceRefresh then
+        UIManager.ForceRefresh()
+    end
     
-    -- Reset visibility
-    exports['qb-hud']:SetHudVisibility(true)
-    exports['qb-hud']:SetCinematicMode(false)
+    HUD.Debug(string.format("Force update completed - %d modules updated", updated), "EXPORT_API", "INFO")
     
-    HUD.Debug(string.format("^2Reset %d modules to default^7", reset), "EXPORT_API")
+    return updated > 0
+end)
+
+---Get performance statistics
+---@return table performance
+exports('GetPerformanceStats', function()
+    ExportAPI.LogCall('GetPerformanceStats')
+    
+    local stats = {
+        exportAPI = ExportAPI.Stats,
+        modules = {}
+    }
+    
+    -- Get module performance stats
+    local modules = {'Health', 'Status', 'Time', 'Location', 'Vehicle', 'UIManager', 'GPSHUD'}
+    
+    for _, moduleName in ipairs(modules) do
+        local moduleTable = _G[moduleName]
+        if moduleTable and moduleTable.GetPerformanceStats then
+            stats.modules[moduleName] = moduleTable.GetPerformanceStats()
+        end
+    end
+    
+    return stats
+end)
+
+-- ================================================================
+-- CALLBACK SYSTEM
+-- ================================================================
+
+---Register a callback function
+---@param name string Callback name
+---@param func function Callback function
+---@return boolean success
+exports('RegisterCallback', function(name, func)
+    ExportAPI.LogCall('RegisterCallback', { name = name, funcType = type(func) })
+    
+    if type(name) ~= "string" or type(func) ~= "function" then
+        ExportAPI.LogError('RegisterCallback', 'Invalid parameters - expected string, function')
+        return false
+    end
+    
+    if not ExportAPI.Components.callbacks then
+        ExportAPI.LogError('RegisterCallback', 'Callback component disabled')
+        return false
+    end
+    
+    ExportAPI.Callbacks[name] = {
+        func = func,
+        resource = GetInvokingResource(),
+        registered = GetGameTimer()
+    }
+    
+    HUD.Debug(string.format("Callback '%s' registered by %s", name, GetInvokingResource() or "unknown"), "EXPORT_API", "INFO")
+    
     return true
 end)
 
--- ================================================================
--- DEBUG EXPORTS
--- ================================================================
-
-if Config.Debug then
-    ---Get debug information
-    exports('GetDebugInfo', function()
-        return {
-            initialized = isInitialized,
-            modulesLoaded = HUD.LoadedModules or {},
-            config = Config,
-            performance = {
-                lastUpdate = os.time(),
-                moduleCount = 0
-            }
-        }
-    end)
+---Trigger a callback
+---@param name string Callback name
+---@param ... any Callback arguments
+---@return any result
+exports('TriggerCallback', function(name, ...)
+    ExportAPI.LogCall('TriggerCallback', { name = name })
     
-    ---Test all export functions
-    exports('TestExports', function()
-        HUD.Debug("^3Testing all export functions...^7", "EXPORT_API")
-        
-        -- Test basic functions
-        local visibility = exports['qb-hud']:GetHudVisibility()
-        local theme = exports['qb-hud']:GetTheme()
-        local status = exports['qb-hud']:GetStatus()
-        
-        HUD.Debug(string.format("^2Visibility: %s, Theme: %s, Modules: %d^7", 
-                  tostring(visibility), theme, #status.modules), "EXPORT_API")
-        
-        return true
-    end)
+    if type(name) ~= "string" then
+        ExportAPI.LogError('TriggerCallback', 'Invalid name type - expected string')
+        return nil
+    end
+    
+    local callback = ExportAPI.Callbacks[name]
+    if callback and callback.func then
+        local success, result = pcall(callback.func, ...)
+        if success then
+            return result
+        else
+            ExportAPI.LogError('TriggerCallback', string.format("Callback '%s' error: %s", name, result))
+            return nil
+        end
+    else
+        ExportAPI.LogError('TriggerCallback', string.format("Callback '%s' not found", name))
+        return nil
+    end
+end)
+
+-- ================================================================
+-- LOGGING & DEBUGGING
+-- ================================================================
+
+---Log an export call
+---@param exportName string Export function name
+---@param params table Parameters passed
+function ExportAPI.LogCall(exportName, params)
+    ExportAPI.Stats.totalCalls = ExportAPI.Stats.totalCalls + 1
+    
+    if ExportAPI.EnableLogging then
+        local paramStr = params and json.encode(params) or "none"
+        HUD.Debug(string.format("Export call: %s(%s) by %s", exportName, paramStr, GetInvokingResource() or "unknown"), "EXPORT_API", "INFO")
+    end
+end
+
+---Log an export error
+---@param exportName string Export function name
+---@param error string Error message
+function ExportAPI.LogError(exportName, error)
+    ExportAPI.Stats.errors = ExportAPI.Stats.errors + 1
+    
+    HUD.Debug(string.format("Export error in %s: %s (called by %s)", exportName, error, GetInvokingResource() or "unknown"), "EXPORT_API", "ERROR")
 end
 
 -- ================================================================
--- MODULE REGISTRATION & CLEANUP
+-- UTILITY FUNCTIONS
 -- ================================================================
 
--- Register module with HUD system
-if HUD then
-    HUD.RegisterModule('export_api', ExportAPI)
+---Get table keys
+---@param t table Table
+---@return table keys
+function table.keys(t)
+    local keys = {}
+    for k, _ in pairs(t) do
+        table.insert(keys, k)
+    end
+    return keys
 end
 
--- Export ExportAPI for internal use
-_G.ExportAPI = ExportAPI
+---Register all exports at once
+function ExportAPI.RegisterAllExports()
+    HUD.Debug("All exports registered successfully", "EXPORT_API", "INFO")
+end
+
+-- ================================================================
+-- CLEANUP
+-- ================================================================
+
+---Cleanup function
+function ExportAPI.Cleanup()
+    ExportAPI.Initialized = false
+    ExportAPI.CustomModules = {}
+    ExportAPI.Callbacks = {}
+    
+    HUD.Debug("Export API cleaned up", "EXPORT_API", "INFO")
+end
 
 -- Cleanup on resource stop
 AddEventHandler('onResourceStop', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then return end
-    
-    if isInitialized then
-        HUD.Debug("^3Export API shutting down^7", "EXPORT_API")
-        isInitialized = false
+    if GetCurrentResourceName() == resourceName then
+        ExportAPI.Cleanup()
     end
 end)
+
+-- ================================================================
+-- MODULE EXPORT
+-- ================================================================
+
+-- Make ExportAPI available globally
+_G.ExportAPI = ExportAPI
+
+HUD.Debug("Export API module loaded", "EXPORT_API", "INFO")

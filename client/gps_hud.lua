@@ -1,5 +1,5 @@
 -- ================================================================
--- QBCore HUD - GPS HUD Client Module (HAUPT-INTERFACE)
+-- QBCore HUD - GPS HUD Client Module (HAUPT-INTERFACE) - COMPLETE
 -- Version: 3.0.0
 -- Description: Hauptinterface mit GPS, Navigation und allen Status-Werten
 --              🎤 Mikrofon | ❤️ Leben | 🍔 Essen | 💧 Durst | 🧠 Stress | 🏃 Ausdauer
@@ -7,22 +7,25 @@
 
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- GPS HUD System
+-- GPS HUD System (HAUPT-INTERFACE)
 GPSHUD = GPSHUD or {}
+GPSHUD.Initialized = false
 GPSHUD.Enabled = true
-GPSHUD.Visible = false
+GPSHUD.Visible = true
 GPSHUD.LastUpdate = 0
 GPSHUD.UpdateInterval = Config.GPSHUD.updateInterval or 200
 
--- Status Cache für alle Werte
+-- Status Cache für alle Werte (ZENTRALER STATUS-SPEICHER)
 GPSHUD.Status = {
-    -- 🎤 Voice System (Mikrofon)
+    -- 🎤 Voice System (Mikrofon) - pma-voice Integration
     voice = {
-        level = 2,              -- Voice level 1-4
+        level = 2,              -- Voice level 1-4 (Whisper, Normal, Shouting, Screaming)
         talking = false,        -- Aktuell am sprechen
         radioActive = false,    -- Radio aktiv
-        radioChannel = 0,       -- Radio Kanal
-        muted = false          -- Stumm geschaltet
+        radioChannel = 0,       -- Radio Kanal (0 = kein Radio)
+        muted = false,          -- Stumm geschaltet
+        proximity = 'normal',   -- Proximity level ('whisper', 'normal', 'shouting', 'screaming')
+        radioTalking = false    -- Am Radio sprechen
     },
     
     -- Biometrics (Alle Lebenswerte für GPS HUD Icons)
@@ -32,20 +35,46 @@ GPSHUD.Status = {
     thirst = 100,              -- 💧 Durst (0-100%)
     stress = 0,                -- 🧠 Stress (0-100%)
     stamina = 100,             -- 🏃 Ausdauer (0-100%)
+    oxygen = 100,              -- 🫁 Sauerstoff (0-100%, nur unter Wasser relevant)
     
-    -- Navigation & Location
+    -- Navigation & Location (GPS-System)
     location = {
-        name = "Unknown",       -- Zone name
+        name = "Los Santos",     -- Zone name (Vinewood Hills, Downtown, etc.)
         street = "Unknown Street", -- Straßenname
-        direction = 0,          -- Kompass-Richtung
-        distance = 0           -- Entfernung zum Waypoint
+        direction = 0,          -- Kompass-Richtung (0-360°)
+        heading = "N",          -- Kompass-Buchstabe (N, NE, E, SE, S, SW, W, NW)
+        distance = 0,           -- Entfernung zum Waypoint
+        waypoint = false,       -- Hat Waypoint gesetzt
+        coords = { x = 0, y = 0, z = 0 } -- Aktuelle Koordinaten
     },
     
-    -- Time Display
+    -- Time Display (Zeit-System)
     time = {
         hours = 0,
         minutes = 0,
-        formatted = "00:00"
+        formatted = "00:00",    -- Formatierte Zeit-Anzeige
+        date = "Monday, January 1st", -- Datum-Anzeige
+        is24h = true           -- 24h Format aktiviert
+    },
+    
+    -- Money Display (Geld-Anzeige)
+    money = {
+        cash = 0,              -- Bargeld
+        bank = 0,              -- Bank-Guthaben
+        total = 0              -- Gesamt-Vermögen
+    },
+    
+    -- Player Status Flags
+    flags = {
+        isDead = false,
+        isUnconscious = false,
+        isBleeding = false,
+        isInVehicle = false,
+        isSwimming = false,
+        isPaused = false,
+        isArmed = false,
+        hasParachute = false,
+        isHandcuffed = false
     }
 }
 
@@ -54,602 +83,788 @@ GPSHUD.Performance = {
     lastVoiceUpdate = 0,
     lastBiometricsUpdate = 0,
     lastLocationUpdate = 0,
-    updateCount = 0
+    lastTimeUpdate = 0,
+    updateCount = 0,
+    averageUpdateTime = 0,
+    skippedUpdates = 0
+}
+
+-- Voice System Integration
+GPSHUD.Voice = {
+    resource = nil,            -- Voice resource name
+    available = false,         -- Voice system available
+    lastLevel = 2,            -- Last voice level
+    radioResource = nil       -- Radio resource name
 }
 
 -- ================================================================
--- INITIALIZATION
+-- INITIALIZATION SYSTEM
 -- ================================================================
 
+---Initialize the GPS HUD system (MAIN INTERFACE)
+---@return boolean success
 function GPSHUD.Init()
+    if GPSHUD.Initialized then
+        HUD.Debug("GPS HUD already initialized", "GPS_HUD", "WARN")
+        return true
+    end
+    
     if not Config.GPSHUD or not Config.GPSHUD.enabled then
-        if HUD and HUD.Debug then
-            HUD.Debug("GPS HUD disabled in config", "GPS", "WARN")
-        end
+        HUD.Debug("GPS HUD disabled in config", "GPS_HUD", "WARN")
         return false
     end
     
-    if HUD and HUD.Debug then
-        HUD.Debug("Initializing GPS HUD system (MAIN INTERFACE)...", "GPS", "INFO")
-    end
+    HUD.Debug("Initializing GPS HUD system (MAIN INTERFACE)...", "GPS_HUD", "INFO")
+    
+    -- Check and initialize voice system
+    GPSHUD.InitializeVoiceSystem()
     
     -- Setup NUI callbacks
-    GPSHUD.SetupCallbacks()
-    
-    -- Start update loops
-    GPSHUD.StartUpdateLoop()
+    GPSHUD.RegisterNUICallbacks()
     
     -- Register events
     GPSHUD.RegisterEvents()
     
-    -- Set initial theme
-    GPSHUD.SetTheme(Config.Theme.current or 'neon-magenta')
+    -- Start update threads
+    GPSHUD.StartUpdateThreads()
     
-    if HUD and HUD.Debug then
-        HUD.Debug("GPS HUD initialized successfully", "GPS", "INFO")
-    end
+    -- Initialize location system
+    GPSHUD.InitializeLocationSystem()
+    
+    -- Load player data
+    GPSHUD.LoadPlayerData()
+    
+    GPSHUD.Initialized = true
+    GPSHUD.Visible = true
+    
+    HUD.Debug("GPS HUD system initialized successfully", "GPS_HUD", "INFO")
+    
+    -- Send initial data to NUI
+    GPSHUD.SendFullUpdate()
+    
     return true
+end
+
+---Initialize voice system integration
+function GPSHUD.InitializeVoiceSystem()
+    -- Check for pma-voice
+    if GetResourceState('pma-voice') == 'started' then
+        GPSHUD.Voice.resource = 'pma-voice'
+        GPSHUD.Voice.available = true
+        HUD.Debug("pma-voice detected and integrated", "GPS_HUD", "INFO")
+    else
+        HUD.Debug("pma-voice not available - voice indicator disabled", "GPS_HUD", "WARN")
+    end
+    
+    -- Check for radio resource
+    local radioResources = {'pma-voice', 'rp-radio', 'qb-radio'}
+    for _, resource in ipairs(radioResources) do
+        if GetResourceState(resource) == 'started' then
+            GPSHUD.Voice.radioResource = resource
+            HUD.Debug(string.format("Radio resource detected: %s", resource), "GPS_HUD", "INFO")
+            break
+        end
+    end
+end
+
+---Initialize location system
+function GPSHUD.InitializeLocationSystem()
+    -- Enable street name display
+    if Config.GPSHUD.components.location then
+        CreateThread(function()
+            while GPSHUD.Initialized do
+                GPSHUD.UpdateLocation()
+                Wait(1500) -- Update location every 1.5 seconds
+            end
+        end)
+    end
+end
+
+---Load player data on initialization
+function GPSHUD.LoadPlayerData()
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    
+    if PlayerData then
+        -- Load money
+        if PlayerData.money then
+            GPSHUD.Status.money.cash = PlayerData.money.cash or 0
+            GPSHUD.Status.money.bank = PlayerData.money.bank or 0
+            GPSHUD.Status.money.total = GPSHUD.Status.money.cash + GPSHUD.Status.money.bank
+        end
+        
+        -- Load metadata
+        if PlayerData.metadata then
+            GPSHUD.Status.hunger = PlayerData.metadata.hunger or 100
+            GPSHUD.Status.thirst = PlayerData.metadata.thirst or 100
+            GPSHUD.Status.stress = PlayerData.metadata.stress or 0
+        end
+        
+        HUD.Debug("Player data loaded into GPS HUD", "GPS_HUD", "INFO")
+    end
+end
+
+-- ================================================================
+-- EVENT SYSTEM
+-- ================================================================
+
+---Register all GPS HUD events
+function GPSHUD.RegisterEvents()
+    -- QBCore player events
+    RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+        GPSHUD.LoadPlayerData()
+        GPSHUD.SendFullUpdate()
+    end)
+    
+    RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+        GPSHUD.SetVisible(false)
+    end)
+    
+    -- Health & needs events
+    RegisterNetEvent('hud:client:UpdateNeeds', function(hunger, thirst)
+        GPSHUD.UpdateNeeds(hunger, thirst)
+    end)
+    
+    RegisterNetEvent('hud:client:UpdateStress', function(stress)
+        GPSHUD.UpdateStress(stress)
+    end)
+    
+    -- Money events
+    RegisterNetEvent('hud:client:UpdateMoney', function(money)
+        GPSHUD.UpdateMoney(money)
+    end)
+    
+    RegisterNetEvent('hud:client:OnMoneyChange', function(amount, moneyType, reason)
+        GPSHUD.OnMoneyChange(amount, moneyType, reason)
+    end)
+    
+    -- Voice events (pma-voice integration)
+    if GPSHUD.Voice.available then
+        RegisterNetEvent('pma-voice:setTalkingMode', function(mode)
+            GPSHUD.UpdateVoiceLevel(mode)
+        end)
+        
+        RegisterNetEvent('pma-voice:radioActive', function(radioTalking)
+            GPSHUD.Status.voice.radioTalking = radioTalking
+        end)
+    end
+    
+    -- Player status events
+    RegisterNetEvent('hospital:client:Revive', function()
+        GPSHUD.OnPlayerRevive()
+    end)
+    
+    RegisterNetEvent('hospital:client:SetLaststand', function()
+        GPSHUD.OnPlayerDown()
+    end)
+    
+    -- GPS HUD control events
+    RegisterNetEvent('hud:client:toggleGPSHUD', function(visible)
+        GPSHUD.SetVisible(visible)
+    end)
+    
+    HUD.Debug("GPS HUD events registered", "GPS_HUD", "INFO")
+end
+
+---Register NUI callbacks
+function GPSHUD.RegisterNUICallbacks()
+    -- Status icon click handlers
+    RegisterNUICallback('statusIconClick', function(data, cb)
+        GPSHUD.OnStatusIconClick(data.type, data.value)
+        cb('ok')
+    end)
+    
+    -- Voice level cycle
+    RegisterNUICallback('cycleVoiceLevel', function(data, cb)
+        GPSHUD.CycleVoiceLevel()
+        cb('ok')
+    end)
+    
+    -- Get detailed status
+    RegisterNUICallback('getDetailedStatus', function(data, cb)
+        cb(GPSHUD.GetDetailedStatus())
+    end)
+    
+    HUD.Debug("GPS HUD NUI callbacks registered", "GPS_HUD", "INFO")
+end
+
+-- ================================================================
+-- UPDATE SYSTEM (HAUPT-UPDATE-THREADS)
+-- ================================================================
+
+---Start all update threads for GPS HUD
+function GPSHUD.StartUpdateThreads()
+    -- Main update thread (all biometrics)
+    CreateThread(function()
+        while GPSHUD.Initialized do
+            local currentTime = GetGameTimer()
+            
+            if currentTime - GPSHUD.LastUpdate >= GPSHUD.UpdateInterval then
+                local startTime = GetGameTimer()
+                
+                -- Update all status values
+                GPSHUD.UpdateAllStatus()
+                
+                -- Send to NUI if changes occurred
+                GPSHUD.SendIncrementalUpdate()
+                
+                -- Performance tracking
+                local updateTime = GetGameTimer() - startTime
+                GPSHUD.Performance.updateCount = GPSHUD.Performance.updateCount + 1
+                GPSHUD.Performance.averageUpdateTime = 
+                    (GPSHUD.Performance.averageUpdateTime + updateTime) / 2
+                
+                GPSHUD.LastUpdate = currentTime
+            else
+                GPSHUD.Performance.skippedUpdates = GPSHUD.Performance.skippedUpdates + 1
+            end
+            
+            Wait(50) -- Small delay to prevent excessive CPU usage
+        end
+    end)
+    
+    -- Voice update thread (faster for responsiveness)
+    if GPSHUD.Voice.available then
+        CreateThread(function()
+            while GPSHUD.Initialized do
+                GPSHUD.UpdateVoiceStatus()
+                Wait(100) -- Update voice every 100ms for responsiveness
+            end
+        end)
+    end
+    
+    -- Time update thread
+    CreateThread(function()
+        while GPSHUD.Initialized do
+            GPSHUD.UpdateTime()
+            Wait(1000) -- Update time every second
+        end
+    end)
+    
+    HUD.Debug("GPS HUD update threads started", "GPS_HUD", "INFO")
+end
+
+---Update all status values (ZENTRALE UPDATE-FUNKTION)
+function GPSHUD.UpdateAllStatus()
+    local ped = PlayerPedId()
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    
+    -- ✅ SAFE: Check if player data exists
+    if not PlayerData then return end
+    
+    -- Update basic health values
+    local currentHealth = GetEntityHealth(ped)
+    GPSHUD.Status.health = currentHealth > 100 and (currentHealth - 100) or 0 -- Convert from 100-200 to 0-100
+    GPSHUD.Status.armor = GetPedArmour(ped)
+    
+    -- Update needs from player metadata
+    if PlayerData.metadata then
+        GPSHUD.Status.hunger = PlayerData.metadata.hunger or 100
+        GPSHUD.Status.thirst = PlayerData.metadata.thirst or 100
+        GPSHUD.Status.stress = PlayerData.metadata.stress or 0
+    end
+    
+    -- Update stamina (only when not in vehicle)
+    if not IsPedInAnyVehicle(ped, false) then
+        GPSHUD.Status.stamina = 100 - GetPlayerSprintStaminaRemaining(PlayerId())
+    else
+        GPSHUD.Status.stamina = 100
+    end
+    
+    -- Update oxygen (only when underwater)
+    if IsPedSwimmingUnderWater(ped) then
+        GPSHUD.Status.oxygen = GetPlayerUnderwaterTimeRemaining(PlayerId()) * 10
+        GPSHUD.Status.flags.isSwimming = true
+    else
+        GPSHUD.Status.oxygen = 100
+        GPSHUD.Status.flags.isSwimming = false
+    end
+    
+    -- Update player flags
+    GPSHUD.UpdatePlayerFlags()
+    
+    -- Update money
+    if PlayerData.money then
+        GPSHUD.Status.money.cash = PlayerData.money.cash or 0
+        GPSHUD.Status.money.bank = PlayerData.money.bank or 0
+        GPSHUD.Status.money.total = GPSHUD.Status.money.cash + GPSHUD.Status.money.bank
+    end
+end
+
+---Update player status flags
+function GPSHUD.UpdatePlayerFlags()
+    local ped = PlayerPedId()
+    
+    GPSHUD.Status.flags.isDead = IsEntityDead(ped)
+    GPSHUD.Status.flags.isInVehicle = IsPedInAnyVehicle(ped, false)
+    GPSHUD.Status.flags.isArmed = IsPedArmed(ped, 7) -- 7 = any weapon
+    GPSHUD.Status.flags.hasParachute = GetPedParachuteState(ped) ~= -1
+    GPSHUD.Status.flags.isPaused = IsPauseMenuActive()
+    
+    -- Check if player is unconscious (from metadata)
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    if PlayerData and PlayerData.metadata then
+        GPSHUD.Status.flags.isUnconscious = PlayerData.metadata.ishandcuffed or false
+        GPSHUD.Status.flags.isBleeding = (PlayerData.metadata.bleed or 0) > 0
+        GPSHUD.Status.flags.isHandcuffed = PlayerData.metadata.ishandcuffed or false
+    end
+end
+
+---Update voice status (pma-voice integration)
+function GPSHUD.UpdateVoiceStatus()
+    if not GPSHUD.Voice.available then return end
+    
+    -- Get voice level from pma-voice
+    local voiceLevel = LocalPlayer.state.proximity or {}
+    if voiceLevel.distance then
+        local distance = voiceLevel.distance
+        
+        -- Convert distance to level (1-4)
+        if distance <= 3.0 then
+            GPSHUD.Status.voice.level = 1 -- Whisper
+            GPSHUD.Status.voice.proximity = 'whisper'
+        elseif distance <= 8.0 then
+            GPSHUD.Status.voice.level = 2 -- Normal
+            GPSHUD.Status.voice.proximity = 'normal'
+        elseif distance <= 15.0 then
+            GPSHUD.Status.voice.level = 3 -- Shouting
+            GPSHUD.Status.voice.proximity = 'shouting'
+        else
+            GPSHUD.Status.voice.level = 4 -- Screaming
+            GPSHUD.Status.voice.proximity = 'screaming'
+        end
+    end
+    
+    -- Get talking state
+    GPSHUD.Status.voice.talking = LocalPlayer.state.proximity and LocalPlayer.state.proximity.talking or false
+    
+    -- Get radio state
+    GPSHUD.Status.voice.radioActive = LocalPlayer.state.radioChannel and LocalPlayer.state.radioChannel > 0 or false
+    GPSHUD.Status.voice.radioChannel = LocalPlayer.state.radioChannel or 0
+    
+    GPSHUD.Performance.lastVoiceUpdate = GetGameTimer()
+end
+
+---Update location information
+function GPSHUD.UpdateLocation()
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+    
+    -- Update coordinates
+    GPSHUD.Status.location.coords = { x = coords.x, y = coords.y, z = coords.z }
+    
+    -- Get street names
+    local street1, street2 = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
+    local streetName1 = GetStreetNameFromHashKey(street1)
+    local streetName2 = GetStreetNameFromHashKey(street2)
+    
+    if streetName2 and streetName2 ~= "" then
+        GPSHUD.Status.location.street = streetName1 .. " / " .. streetName2
+    else
+        GPSHUD.Status.location.street = streetName1
+    end
+    
+    -- Get zone name
+    local zone = GetNameOfZone(coords.x, coords.y, coords.z)
+    GPSHUD.Status.location.name = GetLabelText(zone)
+    
+    -- Get heading/direction
+    local heading = GetEntityHeading(ped)
+    GPSHUD.Status.location.direction = heading
+    GPSHUD.Status.location.heading = GPSHUD.GetCompassDirection(heading)
+    
+    -- Check for waypoint
+    GPSHUD.Status.location.waypoint = IsWaypointActive()
+    if GPSHUD.Status.location.waypoint then
+        local waypointCoords = GetBlipInfoIdCoord(GetFirstBlipInfoId(8))
+        GPSHUD.Status.location.distance = math.floor(#(coords - waypointCoords))
+    else
+        GPSHUD.Status.location.distance = 0
+    end
+    
+    GPSHUD.Performance.lastLocationUpdate = GetGameTimer()
+end
+
+---Update time display
+function GPSHUD.UpdateTime()
+    local hours = GetClockHours()
+    local minutes = GetClockMinutes()
+    
+    GPSHUD.Status.time.hours = hours
+    GPSHUD.Status.time.minutes = minutes
+    
+    -- Format time
+    if GPSHUD.Status.time.is24h then
+        GPSHUD.Status.time.formatted = string.format("%02d:%02d", hours, minutes)
+    else
+        local displayHour = hours
+        local ampm = "AM"
+        
+        if hours == 0 then
+            displayHour = 12
+        elseif hours > 12 then
+            displayHour = hours - 12
+            ampm = "PM"
+        elseif hours == 12 then
+            ampm = "PM"
+        end
+        
+        GPSHUD.Status.time.formatted = string.format("%d:%02d %s", displayHour, minutes, ampm)
+    end
+    
+    -- Format date
+    local dayNames = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+    local monthNames = {"January", "February", "March", "April", "May", "June", 
+                       "July", "August", "September", "October", "November", "December"}
+    
+    local day = GetClockDayOfWeek()
+    local month = GetClockMonth()
+    local dayOfMonth = GetClockDayOfMonth()
+    
+    -- Add ordinal suffix
+    local suffix = "th"
+    if dayOfMonth % 10 == 1 and dayOfMonth ~= 11 then suffix = "st"
+    elseif dayOfMonth % 10 == 2 and dayOfMonth ~= 12 then suffix = "nd"
+    elseif dayOfMonth % 10 == 3 and dayOfMonth ~= 13 then suffix = "rd"
+    end
+    
+    GPSHUD.Status.time.date = string.format("%s, %s %d%s", 
+                                           dayNames[day + 1], 
+                                           monthNames[month + 1], 
+                                           dayOfMonth, 
+                                           suffix)
+    
+    GPSHUD.Performance.lastTimeUpdate = GetGameTimer()
 end
 
 -- ================================================================
 -- NUI COMMUNICATION
 -- ================================================================
 
-function GPSHUD.SetupCallbacks()
-    -- Handle GPS HUD interactions
-    RegisterNUICallback('statusIconClicked', function(data, cb)
-        GPSHUD.HandleStatusIconClick(data.statusType)
-        cb('ok')
-    end)
-    
-    RegisterNUICallback('hudSettings', function(data, cb)
-        GPSHUD.HandleSettingsAction(data)
-        cb('ok')
-    end)
-end
-
-function GPSHUD.SendNUIMessage(action, data)
-    if not GPSHUD.Enabled then return end
+---Send full update to NUI (all data)
+function GPSHUD.SendFullUpdate()
+    if not GPSHUD.Visible then return end
     
     SendNUIMessage({
-        action = action,
-        data = data or {}
+        action = 'updateGPSHUD',
+        data = {
+            -- Voice system
+            voice = GPSHUD.Status.voice,
+            
+            -- Biometrics
+            health = math.max(0, math.min(100, GPSHUD.Status.health)),
+            armor = math.max(0, math.min(100, GPSHUD.Status.armor)),
+            hunger = math.max(0, math.min(100, GPSHUD.Status.hunger)),
+            thirst = math.max(0, math.min(100, GPSHUD.Status.thirst)),
+            stress = math.max(0, math.min(100, GPSHUD.Status.stress)),
+            stamina = math.max(0, math.min(100, GPSHUD.Status.stamina)),
+            oxygen = math.max(0, math.min(100, GPSHUD.Status.oxygen)),
+            
+            -- Location & Navigation
+            location = GPSHUD.Status.location,
+            
+            -- Time
+            time = GPSHUD.Status.time,
+            
+            -- Money
+            money = GPSHUD.Status.money,
+            
+            -- Flags
+            flags = GPSHUD.Status.flags,
+            
+            -- Configuration
+            config = {
+                components = Config.GPSHUD.components,
+                visual = Config.GPSHUD.visual,
+                interaction = Config.GPSHUD.interaction
+            }
+        }
     })
 end
 
--- ================================================================
--- VISIBILITY CONTROL
--- ================================================================
-
-function GPSHUD.Show()
-    if not GPSHUD.Enabled then return end
+---Send incremental update (only changed values)
+function GPSHUD.SendIncrementalUpdate()
+    if not GPSHUD.Visible then return end
     
-    GPSHUD.Visible = true
-    GPSHUD.SendNUIMessage('toggleGpsHud', { show = true })
-    
-    -- Initial data load
-    CreateThread(function()
-        Wait(100)
-        GPSHUD.ForceUpdate()
-    end)
-    
-    if HUD and HUD.Debug then
-        HUD.Debug("GPS HUD shown (Main Interface)", "GPS", "INFO")
-    end
-end
-
-function GPSHUD.Hide()
-    GPSHUD.Visible = false
-    GPSHUD.SendNUIMessage('toggleGpsHud', { show = false })
-    
-    if HUD and HUD.Debug then
-        HUD.Debug("GPS HUD hidden", "GPS", "INFO")
-    end
-end
-
-function GPSHUD.Toggle(visible)
-    if visible == nil then
-        visible = not GPSHUD.Visible
-    end
-    
-    if visible then
-        GPSHUD.Show()
-    else
-        GPSHUD.Hide()
-    end
-end
-
--- ================================================================
--- STATUS DATA COLLECTION
--- ================================================================
-
-function GPSHUD.CollectBiometricData()
-    local Player = QBCore.Functions.GetPlayerData()
-    if not Player then return GPSHUD.Status end
-    
-    local ped = PlayerPedId()
-    
-    -- Sammle alle Biometric-Daten für die GPS HUD Icons
-    local biometrics = {
-        -- ❤️ Leben (Health)
-        health = math.max(0, math.min(100, math.ceil((GetEntityHealth(ped) - 100) / (GetEntityMaxHealth(ped) - 100) * 100))),
-        
-        -- 🛡️ Rüstung (Armor)
-        armor = math.max(0, math.min(100, GetPedArmour(ped))),
-        
-        -- 🍔 Essen (Hunger)
-        hunger = math.max(0, math.min(100, Player.metadata and Player.metadata['hunger'] or 100)),
-        
-        -- 💧 Durst (Thirst)
-        thirst = math.max(0, math.min(100, Player.metadata and Player.metadata['thirst'] or 100)),
-        
-        -- 🧠 Stress
-        stress = math.max(0, math.min(100, Player.metadata and Player.metadata['stress'] or 0)),
-        
-        -- 🏃 Ausdauer (Stamina) - Berechnet aus Sprint-Stamina
-        stamina = math.max(0, math.min(100, 100 - GetPlayerSprintStaminaRemaining(PlayerId())))
-    }
-    
-    return biometrics
-end
-
-function GPSHUD.CollectVoiceData()
-    -- 🎤 Voice-System-Daten sammeln
-    local voiceData = {
-        level = 2, -- Default
-        talking = false,
-        radioActive = false,
-        radioChannel = 0,
-        muted = false
-    }
-    
-    -- pma-voice Integration
-    if GetResourceState('pma-voice'):find('start') then
-        -- Voice Level (Proximity Distance)
-        if LocalPlayer.state.proximity then
-            if LocalPlayer.state.proximity.distance then
-                local distance = LocalPlayer.state.proximity.distance
-                -- Convert distance to level 1-4
-                if distance <= 3 then voiceData.level = 1      -- Whisper
-                elseif distance <= 7 then voiceData.level = 2  -- Normal
-                elseif distance <= 15 then voiceData.level = 3 -- Shout
-                else voiceData.level = 4 end                   -- Megaphone
-            end
-        end
-        
-        -- Talking Status
-        voiceData.talking = NetworkIsPlayerTalking(PlayerId())
-        
-        -- Radio Status
-        if LocalPlayer.state.radioChannel then
-            voiceData.radioChannel = LocalPlayer.state.radioChannel
-            voiceData.radioActive = voiceData.radioChannel > 0
-        end
-        
-        -- Muted Status (if available)
-        if LocalPlayer.state.voiceMuted ~= nil then
-            voiceData.muted = LocalPlayer.state.voiceMuted
-        end
-    end
-    
-    return voiceData
-end
-
-function GPSHUD.CollectLocationData()
-    local ped = PlayerPedId()
-    local coords = GetEntityCoords(ped)
-    
-    -- Street Namen
-    local streetHash, crossingHash = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
-    local streetName = GetStreetNameFromHashKey(streetHash)
-    local crossingName = GetStreetNameFromHashKey(crossingHash)
-    
-    -- Zone Name
-    local zoneName = GetLabelText(GetNameOfZone(coords.x, coords.y, coords.z))
-    
-    -- Direction/Heading
-    local heading = GetEntityHeading(ped)
-    
-    -- Distance to waypoint (if set)
-    local distance = 0
-    if IsWaypointActive() then
-        local waypoint = GetBlipInfoIdCoord(GetFirstBlipInfoId(8))
-        if waypoint.x ~= 0 and waypoint.y ~= 0 then
-            distance = #(coords - waypoint) / 1000 -- Convert to KM
-        end
-    end
-    
-    return {
-        name = zoneName ~= "MAPNAME" and zoneName or "Unknown Area",
-        street = streetName,
-        crossing = crossingName,
-        direction = heading,
-        distance = math.floor(distance * 10) / 10 -- Round to 1 decimal
-    }
-end
-
--- ================================================================
--- STATUS UPDATES
--- ================================================================
-
-function GPSHUD.UpdateAll()
-    if not GPSHUD.Visible or not GPSHUD.Enabled then return end
-    
-    local now = GetGameTimer()
-    
-    -- Update biometrics (❤️🛡️🍔💧🧠🏃)
-    if now - GPSHUD.Performance.lastBiometricsUpdate >= GPSHUD.UpdateInterval then
-        local biometrics = GPSHUD.CollectBiometricData()
-        GPSHUD.UpdateStatus(biometrics)
-        GPSHUD.Performance.lastBiometricsUpdate = now
-    end
-    
-    -- Update voice (🎤) - Higher frequency for responsiveness
-    if now - GPSHUD.Performance.lastVoiceUpdate >= 100 then
-        local voiceData = GPSHUD.CollectVoiceData()
-        GPSHUD.UpdateVoice(voiceData)
-        GPSHUD.Performance.lastVoiceUpdate = now
-    end
-    
-    -- Update location - Lower frequency (every 1.5 seconds)
-    if now - GPSHUD.Performance.lastLocationUpdate >= 1500 then
-        local locationData = GPSHUD.CollectLocationData()
-        GPSHUD.UpdateLocation(locationData)
-        GPSHUD.Performance.lastLocationUpdate = now
-    end
-    
-    GPSHUD.Performance.updateCount = GPSHUD.Performance.updateCount + 1
-end
-
-function GPSHUD.UpdateStatus(statusData)
-    if not GPSHUD.Visible or not GPSHUD.Enabled then return end
-    
-    -- Update internal cache
-    for key, value in pairs(statusData) do
-        if GPSHUD.Status[key] ~= nil then
-            GPSHUD.Status[key] = value
-        end
-    end
-    
-    -- Send to NUI
-    GPSHUD.SendNUIMessage('updateStatus', statusData)
-end
-
-function GPSHUD.UpdateVoice(voiceData)
-    if not GPSHUD.Visible or not GPSHUD.Enabled then return end
-    
-    -- Validate and clamp voice data
-    if voiceData.level then
-        voiceData.level = math.max(1, math.min(4, voiceData.level))
-    end
-    
-    if voiceData.radioChannel then
-        voiceData.radioChannel = math.max(0, voiceData.radioChannel)
-    end
-    
-    -- Update cache
-    for key, value in pairs(voiceData) do
-        if GPSHUD.Status.voice[key] ~= nil then
-            GPSHUD.Status.voice[key] = value
-        end
-    end
-    
-    -- Send to NUI
-    GPSHUD.SendNUIMessage('updateVoice', voiceData)
-end
-
-function GPSHUD.UpdateLocation(locationData)
-    if not GPSHUD.Visible or not GPSHUD.Enabled then return end
-    
-    -- Update cache
-    for key, value in pairs(locationData) do
-        if GPSHUD.Status.location[key] ~= nil then
-            GPSHUD.Status.location[key] = value
-        end
-    end
-    
-    -- Send to NUI
-    GPSHUD.SendNUIMessage('updateLocation', locationData)
-end
-
-function GPSHUD.ForceUpdate()
-    -- Force update all components immediately
-    local biometrics = GPSHUD.CollectBiometricData()
-    local voiceData = GPSHUD.CollectVoiceData()
-    local locationData = GPSHUD.CollectLocationData()
-    
-    GPSHUD.UpdateStatus(biometrics)
-    GPSHUD.UpdateVoice(voiceData)
-    GPSHUD.UpdateLocation(locationData)
-    
-    if HUD and HUD.Debug then
-        HUD.Debug("GPS HUD force update completed", "GPS", "INFO")
-    end
-end
-
--- ================================================================
--- UPDATE LOOP
--- ================================================================
-
-function GPSHUD.StartUpdateLoop()
-    CreateThread(function()
-        while GPSHUD.Enabled do
-            if GPSHUD.Visible then
-                GPSHUD.UpdateAll()
-            end
-            
-            Wait(GPSHUD.UpdateInterval)
-        end
-    end)
-    
-    if HUD and HUD.Debug then
-        HUD.Debug(string.format("GPS HUD update loop started (interval: %dms)", GPSHUD.UpdateInterval), "GPS", "INFO")
-    end
+    -- For performance, we'll send full updates at this interval
+    -- In a production system, you'd implement change detection
+    GPSHUD.SendFullUpdate()
 end
 
 -- ================================================================
 -- EVENT HANDLERS
 -- ================================================================
 
-function GPSHUD.RegisterEvents()
-    -- Player loaded
-    RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-        Wait(2000) -- Wait for other systems to load
-        if Config.GPSHUD.enabled then
-            GPSHUD.Show()
-        end
-    end)
+---Handle needs update from server
+---@param hunger number Hunger value
+---@param thirst number Thirst value
+function GPSHUD.UpdateNeeds(hunger, thirst)
+    if type(hunger) == "number" then
+        GPSHUD.Status.hunger = math.max(0, math.min(100, hunger))
+    end
     
-    -- Player logout
-    RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
-        GPSHUD.Hide()
-    end)
+    if type(thirst) == "number" then
+        GPSHUD.Status.thirst = math.max(0, math.min(100, thirst))
+    end
     
-    -- Voice Events (pma-voice)
-    RegisterNetEvent('pma-voice:setTalkingMode', function(mode)
-        GPSHUD.Status.voice.level = mode
-        GPSHUD.UpdateVoice({ level = mode })
-    end)
+    HUD.Debug(string.format("Needs updated - Hunger: %d, Thirst: %d", 
+              GPSHUD.Status.hunger, GPSHUD.Status.thirst), "GPS_HUD", "INFO")
     
-    RegisterNetEvent('pma-voice:radioActive', function(radioTalking)
-        GPSHUD.Status.voice.radioActive = radioTalking
-        GPSHUD.UpdateVoice({ radioActive = radioTalking })
-    end)
+    GPSHUD.SendFullUpdate()
+end
+
+---Handle stress update from server
+---@param stress number Stress value
+function GPSHUD.UpdateStress(stress)
+    if type(stress) == "number" then
+        GPSHUD.Status.stress = math.max(0, math.min(100, stress))
+        
+        HUD.Debug(string.format("Stress updated: %d", GPSHUD.Status.stress), "GPS_HUD", "INFO")
+        GPSHUD.SendFullUpdate()
+    end
+end
+
+---Handle money update
+---@param money table Money data
+function GPSHUD.UpdateMoney(money)
+    if type(money) == "table" then
+        GPSHUD.Status.money.cash = money.cash or GPSHUD.Status.money.cash
+        GPSHUD.Status.money.bank = money.bank or GPSHUD.Status.money.bank
+        GPSHUD.Status.money.total = GPSHUD.Status.money.cash + GPSHUD.Status.money.bank
+        
+        GPSHUD.SendFullUpdate()
+    end
+end
+
+---Handle money change event
+---@param amount number Amount changed
+---@param moneyType string Type of money ('cash' or 'bank')
+---@param reason string Reason for change
+function GPSHUD.OnMoneyChange(amount, moneyType, reason)
+    if moneyType == 'cash' then
+        GPSHUD.Status.money.cash = GPSHUD.Status.money.cash + amount
+    elseif moneyType == 'bank' then
+        GPSHUD.Status.money.bank = GPSHUD.Status.money.bank + amount
+    end
     
-    -- Health/Needs Updates
-    RegisterNetEvent('hud:client:UpdateNeeds', function(hunger, thirst)
-        GPSHUD.UpdateStatus({
-            hunger = hunger,
-            thirst = thirst
+    GPSHUD.Status.money.total = GPSHUD.Status.money.cash + GPSHUD.Status.money.bank
+    
+    -- Show money change notification if configured
+    if Config.GPSHUD.visual.showMoneyChanges then
+        SendNUIMessage({
+            action = 'showMoneyChange',
+            amount = amount,
+            type = moneyType,
+            reason = reason
         })
-    end)
+    end
     
-    -- Stress Updates
-    RegisterNetEvent('hud:client:UpdateStress', function(stress)
-        GPSHUD.UpdateStatus({
-            stress = stress
-        })
-    end)
+    GPSHUD.SendFullUpdate()
+end
+
+---Handle voice level update
+---@param mode number Voice mode
+function GPSHUD.UpdateVoiceLevel(mode)
+    GPSHUD.Status.voice.level = mode or 2
+    GPSHUD.Voice.lastLevel = GPSHUD.Status.voice.level
     
-    -- Money updates (for potential future integration)
-    RegisterNetEvent('hud:client:OnMoneyChange', function(type, amount, newAmount)
-        if HUD and HUD.Debug then
-            HUD.Debug(string.format("Money change: %s %s (new: %s)", type, amount, newAmount), "GPS", "INFO")
-        end
-    end)
+    GPSHUD.SendFullUpdate()
+end
+
+---Handle player revive
+function GPSHUD.OnPlayerRevive()
+    GPSHUD.Status.flags.isDead = false
+    GPSHUD.Status.flags.isUnconscious = false
+    GPSHUD.Status.health = 100
     
-    -- Vehicle events (for potential future integration)
-    RegisterNetEvent('QBCore:Client:VehicleInfo', function(info)
-        -- Could be used for vehicle-specific GPS HUD features
-    end)
+    HUD.Debug("Player revived - GPS HUD status reset", "GPS_HUD", "INFO")
+    GPSHUD.SendFullUpdate()
+end
+
+---Handle player down
+function GPSHUD.OnPlayerDown()
+    GPSHUD.Status.flags.isUnconscious = true
+    
+    HUD.Debug("Player down - GPS HUD updated", "GPS_HUD", "INFO")
+    GPSHUD.SendFullUpdate()
+end
+
+---Handle status icon click
+---@param statusType string Type of status clicked
+---@param currentValue number Current value
+function GPSHUD.OnStatusIconClick(statusType, currentValue)
+    if not Config.GPSHUD.interaction.clickableIcons then return end
+    
+    HUD.Debug(string.format("Status icon clicked: %s (value: %s)", statusType, currentValue), "GPS_HUD", "INFO")
+    
+    -- Show detailed information
+    local message = GPSHUD.GetStatusMessage(statusType, currentValue)
+    if message then
+        QBCore.Functions.Notify(message, 'primary')
+    end
+    
+    -- Trigger custom event for other resources
+    TriggerEvent('hud:client:statusIconClicked', statusType, currentValue, GPSHUD.Status)
+end
+
+---Cycle voice level
+function GPSHUD.CycleVoiceLevel()
+    if not GPSHUD.Voice.available then return end
+    
+    local currentLevel = GPSHUD.Status.voice.level
+    local newLevel = currentLevel + 1
+    
+    if newLevel > 4 then newLevel = 1 end
+    
+    -- Trigger voice level change (this depends on your voice system)
+    if GPSHUD.Voice.resource == 'pma-voice' then
+        exports['pma-voice']:setVoiceProperty('radioEnabled', newLevel > 1)
+    end
+    
+    GPSHUD.Status.voice.level = newLevel
+    GPSHUD.SendFullUpdate()
+    
+    HUD.Debug(string.format("Voice level cycled to: %d", newLevel), "GPS_HUD", "INFO")
 end
 
 -- ================================================================
--- USER INTERACTIONS
+-- PUBLIC API FUNCTIONS
 -- ================================================================
 
-function GPSHUD.HandleStatusIconClick(statusType)
-    if HUD and HUD.Debug then
-        HUD.Debug(string.format("Status icon clicked: %s", statusType), "GPS", "INFO")
-    end
+---Set GPS HUD visibility
+---@param visible boolean Visibility state
+function GPSHUD.SetVisible(visible)
+    GPSHUD.Visible = visible
     
-    -- Handle different status icon clicks
-    if statusType == 'voice' then
-        -- 🎤 Cycle through voice levels
-        local currentLevel = GPSHUD.Status.voice.level
-        local newLevel = currentLevel >= 4 and 1 or currentLevel + 1
-        
-        -- Trigger voice level change via pma-voice
-        if GetResourceState('pma-voice'):find('start') then
-            exports['pma-voice']:setVoiceProperty("radioEnabled", true)
-            -- Note: Actual voice level change needs to be handled by pma-voice commands
-        end
-        
-        QBCore.Functions.Notify(string.format('Voice Level: %d', newLevel), 'primary')
-        
-    elseif statusType == 'health' then
-        -- ❤️ Health info
-        local health = GPSHUD.Status.health
-        local status = health > 75 and "Excellent" or health > 50 and "Good" or health > 25 and "Fair" or "Critical"
-        QBCore.Functions.Notify(string.format('Health: %d%% (%s)', health, status), health > 50 and 'success' or health > 25 and 'primary' or 'error')
-        
-    elseif statusType == 'armor' then
-        -- 🛡️ Armor info
-        local armor = GPSHUD.Status.armor
-        if armor > 0 then
-            QBCore.Functions.Notify(string.format('Armor: %d%%', armor), 'primary')
-        else
-            QBCore.Functions.Notify('No armor equipped', 'error')
-        end
-        
-    elseif statusType == 'hunger' then
-        -- 🍔 Hunger info
-        local hunger = GPSHUD.Status.hunger
-        local status = hunger > 75 and "Well Fed" or hunger > 50 and "Satisfied" or hunger > 25 and "Hungry" or "Starving"
-        QBCore.Functions.Notify(string.format('Hunger: %d%% (%s)', hunger, status), hunger > 25 and 'success' or 'error')
-        
-    elseif statusType == 'thirst' then
-        -- 💧 Thirst info
-        local thirst = GPSHUD.Status.thirst
-        local status = thirst > 75 and "Hydrated" or thirst > 50 and "Refreshed" or thirst > 25 and "Thirsty" or "Dehydrated"
-        QBCore.Functions.Notify(string.format('Thirst: %d%% (%s)', thirst, status), thirst > 25 and 'success' or 'error')
-        
-    elseif statusType == 'stress' then
-        -- 🧠 Stress info
-        local stress = GPSHUD.Status.stress
-        local status = stress < 25 and "Relaxed" or stress < 50 and "Mild" or stress < 75 and "Stressed" or "Critical"
-        QBCore.Functions.Notify(string.format('Stress: %d%% (%s)', stress, status), stress < 50 and 'success' or stress < 75 and 'primary' or 'error')
-        
-    elseif statusType == 'stamina' then
-        -- 🏃 Stamina info
-        local stamina = GPSHUD.Status.stamina
-        local status = stamina > 75 and "Energetic" or stamina > 50 and "Active" or stamina > 25 and "Tired" or "Exhausted"
-        QBCore.Functions.Notify(string.format('Stamina: %d%% (%s)', stamina, status), stamina > 25 and 'success' or 'error')
-    end
-end
-
-function GPSHUD.HandleSettingsAction(data)
-    if data.action == 'getSettings' then
-        -- Return current settings
-        GPSHUD.SendNUIMessage('settingsData', {
-            theme = Config.Theme.current,
-            gpsEnabled = GPSHUD.Enabled,
-            components = Config.GPSHUD.components
-        })
-        
-    elseif data.action == 'saveSettings' then
-        -- Save settings (implement as needed)
-        if HUD and HUD.Debug then
-            HUD.Debug("Settings saved", "GPS", "INFO")
-        end
-        
-    elseif data.action == 'resetSettings' then
-        -- Reset to defaults
-        GPSHUD.SetTheme('neon-magenta')
-        if HUD and HUD.Debug then
-            HUD.Debug("Settings reset to defaults", "GPS", "INFO")
-        end
-    end
-end
-
--- ================================================================
--- THEME SYSTEM
--- ================================================================
-
-function GPSHUD.SetTheme(theme)
-    if not theme or not Config.Theme.colors[theme] then
-        theme = 'neon-magenta'
-    end
+    HUD.Debug(string.format("GPS HUD visibility: %s", visible and "visible" or "hidden"), "GPS_HUD", "INFO")
     
-    GPSHUD.SendNUIMessage('updateTheme', { theme = theme })
-    
-    if HUD and HUD.Debug then
-        HUD.Debug(string.format("GPS HUD theme changed to: %s", theme), "GPS", "INFO")
-    end
-end
-
-function GPSHUD.SetPosition(position)
-    GPSHUD.SendNUIMessage('updatePosition', { position = position })
-    
-    if HUD and HUD.Debug then
-        HUD.Debug(string.format("GPS HUD position changed to: %s", position), "GPS", "INFO")
-    end
-end
-
-function GPSHUD.SetPerformanceMode(enabled)
-    GPSHUD.SendNUIMessage('setPerformanceMode', { enabled = enabled })
-    
-    if enabled then
-        GPSHUD.UpdateInterval = 500 -- Slower updates
+    if visible then
+        GPSHUD.SendFullUpdate()
     else
-        GPSHUD.UpdateInterval = Config.GPSHUD.updateInterval or 200
-    end
-    
-    if HUD and HUD.Debug then
-        HUD.Debug(string.format("GPS HUD performance mode: %s", enabled and "ENABLED" or "DISABLED"), "GPS", "INFO")
+        SendNUIMessage({
+            action = 'toggleGPSHUD',
+            visible = false
+        })
     end
 end
 
--- ================================================================
--- EXPORTS
--- ================================================================
+---Get GPS HUD visibility
+---@return boolean visible
+function GPSHUD.IsVisible()
+    return GPSHUD.Visible
+end
 
--- Show/Hide GPS HUD
-exports('ShowGPSHUD', GPSHUD.Show)
-exports('HideGPSHUD', GPSHUD.Hide)
-exports('ToggleGPSHUD', GPSHUD.Toggle)
-
--- Update functions
-exports('UpdateGPSStatus', GPSHUD.UpdateStatus)
-exports('UpdateGPSVoice', GPSHUD.UpdateVoice)
-exports('UpdateGPSLocation', GPSHUD.UpdateLocation)
-exports('ForceGPSUpdate', GPSHUD.ForceUpdate)
-
--- Theme and settings
-exports('SetGPSTheme', GPSHUD.SetTheme)
-exports('SetGPSPosition', GPSHUD.SetPosition)
-exports('SetGPSPerformanceMode', GPSHUD.SetPerformanceMode)
-
--- Get status
-exports('GetGPSHUDStatus', function()
+---Get current GPS HUD status
+---@return table status
+function GPSHUD.GetStatus()
     return GPSHUD.Status
+end
+
+---Get detailed status for specific type
+---@return table detailedStatus
+function GPSHUD.GetDetailedStatus()
+    return {
+        status = GPSHUD.Status,
+        performance = GPSHUD.Performance,
+        voice = GPSHUD.Voice,
+        config = Config.GPSHUD
+    }
+end
+
+---Force update GPS HUD
+function GPSHUD.ForceUpdate()
+    GPSHUD.UpdateAllStatus()
+    GPSHUD.UpdateLocation()
+    GPSHUD.UpdateTime()
+    if GPSHUD.Voice.available then
+        GPSHUD.UpdateVoiceStatus()
+    end
+    GPSHUD.SendFullUpdate()
+    
+    HUD.Debug("GPS HUD force update completed", "GPS_HUD", "INFO")
+end
+
+---Set theme for GPS HUD
+---@param theme string Theme name
+function GPSHUD.SetTheme(theme)
+    SendNUIMessage({
+        action = 'setTheme',
+        theme = theme
+    })
+    
+    HUD.Debug(string.format("GPS HUD theme set to: %s", theme), "GPS_HUD", "INFO")
+end
+
+-- ================================================================
+-- UTILITY FUNCTIONS
+-- ================================================================
+
+---Get compass direction from heading
+---@param heading number Heading in degrees
+---@return string direction
+function GPSHUD.GetCompassDirection(heading)
+    local directions = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
+    local index = math.floor((heading + 22.5) / 45) % 8
+    return directions[index + 1]
+end
+
+---Get status message for clicked icon
+---@param statusType string Status type
+---@param value number Current value
+---@return string message
+function GPSHUD.GetStatusMessage(statusType, value)
+    local messages = {
+        health = string.format("Health: %d%% %s", value, value < 25 and "(Critical!)" or ""),
+        armor = string.format("Armor: %d%% %s", value, value < 25 and "(Low!)" or ""),
+        hunger = string.format("Hunger: %d%% %s", value, value < 25 and "(Hungry!)" or ""),
+        thirst = string.format("Thirst: %d%% %s", value, value < 25 and "(Thirsty!)" or ""),
+        stress = string.format("Stress: %d%% %s", value, value > 75 and "(High!)" or ""),
+        stamina = string.format("Stamina: %d%% %s", value, value < 25 and "(Tired!)" or ""),
+        voice = string.format("Voice Level: %d (%s)", GPSHUD.Status.voice.level, GPSHUD.Status.voice.proximity)
+    }
+    
+    return messages[statusType]
+end
+
+---Get performance statistics
+---@return table performance
+function GPSHUD.GetPerformanceStats()
+    return {
+        initialized = GPSHUD.Initialized,
+        visible = GPSHUD.Visible,
+        updateInterval = GPSHUD.UpdateInterval,
+        updateCount = GPSHUD.Performance.updateCount,
+        averageUpdateTime = GPSHUD.Performance.averageUpdateTime,
+        skippedUpdates = GPSHUD.Performance.skippedUpdates,
+        lastUpdate = GPSHUD.LastUpdate,
+        voiceAvailable = GPSHUD.Voice.available,
+        voiceResource = GPSHUD.Voice.resource
+    }
+end
+
+-- ================================================================
+-- CLEANUP
+-- ================================================================
+
+---Cleanup function
+function GPSHUD.Cleanup()
+    GPSHUD.Initialized = false
+    GPSHUD.Visible = false
+    
+    HUD.Debug("GPS HUD cleaned up", "GPS_HUD", "INFO")
+end
+
+-- Cleanup on resource stop
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() == resourceName then
+        GPSHUD.Cleanup()
+    end
 end)
 
-exports('GetGPSHUDPerformance', function()
-    return GPSHUD.Performance
-end)
-
 -- ================================================================
--- COMMANDS (Debug)
+-- MODULE EXPORT
 -- ================================================================
 
-if Config.Debug then
-    RegisterCommand('gpshudtest', function(source, args)
-        if args[1] == 'voice' then
-            -- Test voice levels
-            for i = 1, 4 do
-                GPSHUD.UpdateVoice({ level = i, talking = i == 2 })
-                Wait(1000)
-            end
-            
-        elseif args[1] == 'status' then
-            -- Test all status values
-            GPSHUD.UpdateStatus({
-                health = math.random(20, 100),
-                armor = math.random(0, 100),
-                hunger = math.random(20, 100),
-                thirst = math.random(20, 100),
-                stress = math.random(0, 80),
-                stamina = math.random(20, 100)
-            })
-            
-        elseif args[1] == 'location' then
-            -- Test location update
-            GPSHUD.UpdateLocation({
-                name = "Test Location",
-                street = "Test Street",
-                direction = math.random(0, 360),
-                distance = math.random(0, 50) / 10
-            })
-            
-        else
-            print("^3GPS HUD Test Commands:^7")
-            print("^7/gpshudtest voice - Test voice indicators")
-            print("^7/gpshudtest status - Test status values")
-            print("^7/gpshudtest location - Test location display")
-        end
-    end, false)
-end
+-- Make GPSHUD available globally
+_G.GPSHUD = GPSHUD
 
--- ================================================================
--- INITIALIZATION
--- ================================================================
-
--- Register with HUD system
-if HUD and HUD.RegisterModule then
-    HUD.RegisterModule('gps_hud', GPSHUD)
-end
-
-if HUD and HUD.Debug then
-    HUD.Debug("GPS HUD module loaded (MAIN INTERFACE)", "GPS", "INFO")
-end
+HUD.Debug("GPS HUD module loaded (MAIN INTERFACE)", "GPS_HUD", "INFO")
