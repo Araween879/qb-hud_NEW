@@ -1,0 +1,552 @@
+<!-- ================================================================
+     QBCore HUD - Time & Weather Module Template
+     Version: 3.0.0
+     Description: Time display, date information, and weather status
+     ================================================================ -->
+
+<div class="time-container module neon-glow theme-cyberpunk" id="time-container">
+    <!-- Time Display -->
+    <div class="time-display">
+        <div class="time-main" id="time-main">00:00</div>
+        <div class="time-period" id="time-period">AM</div>
+    </div>
+    
+    <!-- Date Display -->
+    <div class="date-display">
+        <div class="date-main" id="date-main">MON, JAN 01</div>
+        <div class="date-year" id="date-year">2024</div>
+    </div>
+    
+    <!-- Weather Section -->
+    <div class="weather-section" id="weather-section">
+        <div class="weather-icon" id="weather-icon">
+            <i class="fas fa-sun"></i>
+        </div>
+        <div class="weather-info">
+            <div class="weather-temp" id="weather-temp">22°C</div>
+            <div class="weather-desc" id="weather-desc">CLEAR</div>
+        </div>
+    </div>
+    
+    <!-- Time Format Toggle -->
+    <div class="format-toggle" id="format-toggle" title="Toggle 12/24 Hour Format">
+        <i class="fas fa-clock"></i>
+        <span id="format-indicator">24H</span>
+    </div>
+    
+    <!-- Animation Effects -->
+    <div class="time-glow"></div>
+    <div class="digital-rain"></div>
+</div>
+
+<style>
+/* ================================================================
+   Time Module Styles - Neon Design DNA
+   ================================================================ */
+
+.time-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 200px;
+    height: auto;
+    background: linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(17, 17, 17, 0.98));
+    border: 2px solid var(--neon-cyan, #00ffff);
+    border-radius: 12px;
+    font-family: 'Orbitron', monospace;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.time-container.hidden {
+    opacity: 0;
+    transform: scale(0.8) translateY(-20px);
+    pointer-events: none;
+}
+
+.time-container.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+}
+
+/* Time Display */
+.time-display {
+    padding: 16px 18px 8px;
+    text-align: center;
+    position: relative;
+}
+
+.time-main {
+    font-size: 32px;
+    font-weight: 900;
+    color: white;
+    text-shadow: 
+        0 0 15px white,
+        0 0 30px rgba(0, 255, 255, 0.5);
+    line-height: 1;
+    letter-spacing: 2px;
+    position: relative;
+    z-index: 5;
+}
+
+.time-period {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--neon-cyan, #00ffff);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+    opacity: 0.9;
+}
+
+/* Date Display */
+.date-display {
+    padding: 0 18px 12px;
+    text-align: center;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.date-main {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--neon-cyan, #00ffff);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+    text-shadow: 0 0 8px var(--neon-cyan, #00ffff);
+}
+
+.date-year {
+    font-size: 10px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.5px;
+}
+
+/* Weather Section */
+.weather-section {
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.weather-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(160, 32, 240, 0.2));
+    border: 1px solid rgba(0, 255, 255, 0.4);
+    border-radius: 8px;
+    color: var(--neon-cyan, #00ffff);
+    font-size: 16px;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.weather-icon:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.weather-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.weather-temp {
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 0 8px white;
+}
+
+.weather-desc {
+    font-size: 9px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Format Toggle */
+.format-toggle {
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(0, 255, 255, 0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+.format-toggle:hover {
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.2);
+}
+
+.format-toggle i {
+    font-size: 10px;
+    color: var(--neon-cyan, #00ffff);
+}
+
+.format-toggle span {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--neon-cyan, #00ffff);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Animation Effects */
+.time-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 120%;
+    height: 120%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.1), transparent);
+    border-radius: 50%;
+    animation: time-pulse 4s ease-in-out infinite;
+    z-index: 1;
+}
+
+.digital-rain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        linear-gradient(0deg, transparent 98%, rgba(0, 255, 255, 0.1) 100%),
+        linear-gradient(90deg, transparent 98%, rgba(0, 255, 255, 0.05) 100%);
+    background-size: 20px 20px, 15px 15px;
+    animation: digital-rain 8s linear infinite;
+    opacity: 0.3;
+    z-index: 2;
+}
+
+/* Time Update Animations */
+.time-main.time-update {
+    animation: time-flash 0.5s ease;
+}
+
+.date-main.date-update {
+    animation: date-glow 1s ease;
+}
+
+.weather-section.weather-update {
+    animation: weather-pulse 0.8s ease;
+}
+
+/* Weather Icon Animations */
+.weather-icon.sunny {
+    animation: sunny-glow 3s ease-in-out infinite;
+}
+
+.weather-icon.cloudy {
+    animation: cloudy-drift 4s ease-in-out infinite;
+}
+
+.weather-icon.rainy {
+    animation: rainy-bounce 2s ease-in-out infinite;
+}
+
+.weather-icon.stormy {
+    animation: stormy-flash 1.5s ease-in-out infinite;
+}
+
+/* Keyframes */
+@keyframes time-pulse {
+    0%, 100% { 
+        opacity: 0.3;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% { 
+        opacity: 0.6;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+}
+
+@keyframes digital-rain {
+    0% { 
+        background-position: 0 0, 0 0;
+    }
+    100% { 
+        background-position: 20px 20px, 15px 15px;
+    }
+}
+
+@keyframes time-flash {
+    0%, 100% { 
+        text-shadow: 
+            0 0 15px white,
+            0 0 30px rgba(0, 255, 255, 0.5);
+    }
+    50% { 
+        text-shadow: 
+            0 0 25px white,
+            0 0 50px rgba(0, 255, 255, 0.8),
+            0 0 75px rgba(0, 255, 255, 0.6);
+    }
+}
+
+@keyframes date-glow {
+    0%, 100% { 
+        text-shadow: 0 0 8px var(--neon-cyan, #00ffff);
+    }
+    50% { 
+        text-shadow: 
+            0 0 15px var(--neon-cyan, #00ffff),
+            0 0 25px rgba(0, 255, 255, 0.8);
+    }
+}
+
+@keyframes weather-pulse {
+    0%, 100% { 
+        transform: scale(1);
+    }
+    50% { 
+        transform: scale(1.02);
+    }
+}
+
+@keyframes sunny-glow {
+    0%, 100% { 
+        box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+        color: #ffa500;
+    }
+    50% { 
+        box-shadow: 0 0 20px rgba(255, 165, 0, 0.6);
+        color: #ffcc00;
+    }
+}
+
+@keyframes cloudy-drift {
+    0%, 100% { 
+        transform: translateX(0);
+    }
+    50% { 
+        transform: translateX(2px);
+    }
+}
+
+@keyframes rainy-bounce {
+    0%, 100% { 
+        transform: translateY(0);
+        color: #4a90e2;
+    }
+    50% { 
+        transform: translateY(-2px);
+        color: #87ceeb;
+    }
+}
+
+@keyframes stormy-flash {
+    0%, 90%, 100% { 
+        color: #666;
+        box-shadow: 0 0 10px rgba(102, 102, 102, 0.3);
+    }
+    10% { 
+        color: #ffff00;
+        box-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
+    }
+}
+
+/* Weather Specific Colors */
+.weather-sunny { color: #ffa500 !important; }
+.weather-cloudy { color: #87ceeb !important; }
+.weather-rainy { color: #4a90e2 !important; }
+.weather-stormy { color: #666 !important; }
+.weather-snowy { color: #e6f3ff !important; }
+.weather-foggy { color: #d3d3d3 !important; }
+
+/* Theme Variants */
+.theme-synthwave .time-container {
+    border-color: #ff0080;
+    box-shadow: 0 0 20px rgba(255, 0, 128, 0.3);
+}
+
+.theme-synthwave .time-main {
+    text-shadow: 
+        0 0 15px white,
+        0 0 30px rgba(255, 0, 128, 0.5);
+}
+
+.theme-synthwave .date-main,
+.theme-synthwave .time-period {
+    color: #ff0080;
+    text-shadow: 0 0 8px #ff0080;
+}
+
+.theme-synthwave .weather-icon {
+    border-color: #ff0080;
+    background: linear-gradient(135deg, rgba(255, 0, 128, 0.2), rgba(128, 0, 255, 0.2));
+    color: #ff0080;
+}
+
+.theme-matrix .time-container {
+    border-color: #00ff00;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.theme-matrix .time-main {
+    text-shadow: 
+        0 0 15px white,
+        0 0 30px rgba(0, 255, 0, 0.5);
+}
+
+.theme-matrix .date-main,
+.theme-matrix .time-period {
+    color: #00ff00;
+    text-shadow: 0 0 8px #00ff00;
+}
+
+.theme-matrix .weather-icon {
+    border-color: #00ff00;
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.2), rgba(0, 128, 0, 0.2));
+    color: #00ff00;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .time-container {
+        width: 160px;
+        top: 15px;
+        right: 15px;
+    }
+    
+    .time-main {
+        font-size: 28px;
+        letter-spacing: 1px;
+    }
+    
+    .time-period {
+        font-size: 10px;
+    }
+    
+    .date-main {
+        font-size: 12px;
+    }
+    
+    .weather-section {
+        padding: 10px 15px;
+    }
+    
+    .weather-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+    
+    .weather-temp {
+        font-size: 14px;
+    }
+    
+    .weather-desc {
+        font-size: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .time-container {
+        width: 140px;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .time-main {
+        font-size: 24px;
+    }
+    
+    .time-period {
+        font-size: 9px;
+    }
+    
+    .date-main {
+        font-size: 11px;
+    }
+    
+    .date-year {
+        font-size: 9px;
+    }
+    
+    .weather-section {
+        padding: 8px 12px;
+        gap: 8px;
+    }
+    
+    .weather-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    .weather-temp {
+        font-size: 12px;
+    }
+    
+    .weather-desc {
+        font-size: 7px;
+    }
+    
+    .format-toggle {
+        padding: 6px 12px;
+    }
+    
+    .format-toggle i,
+    .format-toggle span {
+        font-size: 8px;
+    }
+}
+
+/* Special Effects for Midnight/Noon */
+.time-container.midnight .time-main {
+    animation: midnight-glow 2s ease-in-out;
+}
+
+.time-container.noon .time-main {
+    animation: noon-glow 2s ease-in-out;
+}
+
+@keyframes midnight-glow {
+    0%, 100% { 
+        text-shadow: 
+            0 0 15px white,
+            0 0 30px rgba(0, 255, 255, 0.5);
+    }
+    50% { 
+        text-shadow: 
+            0 0 25px #a020f0,
+            0 0 50px rgba(160, 32, 240, 0.8),
+            0 0 75px rgba(160, 32, 240, 0.6);
+    }
+}
+
+@keyframes noon-glow {
+    0%, 100% { 
+        text-shadow: 
+            0 0 15px white,
+            0 0 30px rgba(0, 255, 255, 0.5);
+    }
+    50% { 
+        text-shadow: 
+            0 0 25px #ffd700,
+            0 0 50px rgba(255, 215, 0, 0.8),
+            0 0 75px rgba(255, 215, 0, 0.6);
+    }
+}
+</style>

@@ -1,0 +1,681 @@
+<!-- ================================================================
+     QBCore HUD - Vehicle HUD Module Template
+     Version: 3.0.0
+     Description: Vehicle speedometer, fuel, engine, status indicators
+     ================================================================ -->
+
+<div class="vehicle-container module neon-glow theme-cyberpunk" id="vehicle-container">
+    <!-- Vehicle Header -->
+    <div class="vehicle-header">
+        <div class="vehicle-title">
+            <i class="fas fa-car" id="vehicle-icon"></i>
+            <span>VEHICLE</span>
+        </div>
+        <div class="vehicle-status">
+            <div class="status-indicator" id="seatbelt-icon" title="Seatbelt">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="status-indicator" id="harness-icon" title="Racing Harness">
+                <i class="fas fa-anchor"></i>
+            </div>
+            <div class="status-indicator" id="cruise-icon" title="Cruise Control">
+                <i class="fas fa-route"></i>
+            </div>
+            <div class="status-indicator" id="nitro-icon" title="Nitro">
+                <i class="fas fa-fire"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Speedometer Section -->
+    <div class="speedometer-section">
+        <div class="speedometer" id="speedometer">
+            <!-- Speed Arc Background -->
+            <div class="speed-arc">
+                <div class="arc-bg"></div>
+                <div class="speed-needle" id="speed-needle"></div>
+            </div>
+            
+            <!-- Speed Display -->
+            <div class="speed-display">
+                <div class="speed-value" id="speed-value">0</div>
+                <div class="speed-unit" id="speed-unit">MPH</div>
+                <div class="max-speed" id="max-speed">200</div>
+            </div>
+            
+            <!-- RPM Gauge -->
+            <div class="rpm-gauge" id="rpm-gauge">
+                <div class="rpm-needle"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Vehicle Gauges -->
+    <div class="gauges-section">
+        <!-- Fuel Gauge -->
+        <div class="gauge fuel-gauge" id="fuel-gauge">
+            <div class="gauge-header">
+                <i class="fas fa-gas-pump" id="fuel-icon"></i>
+                <span>FUEL</span>
+            </div>
+            <div class="gauge-bar">
+                <div class="gauge-fill" id="fuel-fill"></div>
+            </div>
+            <div class="gauge-value" id="fuel-value">100%</div>
+        </div>
+        
+        <!-- Engine Gauge -->
+        <div class="gauge engine-gauge" id="engine-gauge">
+            <div class="gauge-header">
+                <i class="fas fa-cog" id="engine-icon"></i>
+                <span>ENGINE</span>
+            </div>
+            <div class="gauge-bar">
+                <div class="gauge-fill" id="engine-fill"></div>
+            </div>
+            <div class="gauge-value" id="engine-value">100%</div>
+        </div>
+        
+        <!-- Nitro Gauge -->
+        <div class="gauge nitro-gauge" id="nitro-gauge">
+            <div class="gauge-header">
+                <i class="fas fa-fire"></i>
+                <span>NITRO</span>
+            </div>
+            <div class="gauge-bar horizontal">
+                <div class="gauge-fill" id="nitro-fill"></div>
+            </div>
+            <div class="gauge-value" id="nitro-value">0%</div>
+        </div>
+    </div>
+    
+    <!-- Vehicle Info -->
+    <div class="vehicle-info">
+        <div class="info-item">
+            <div class="info-label">GEAR</div>
+            <div class="info-value gear-display" id="gear-display">1</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">ALT</div>
+            <div class="info-value" id="altitude-display">0m</div>
+        </div>
+    </div>
+    
+    <!-- Animation Effects -->
+    <div class="speed-glow"></div>
+    <div class="scan-line"></div>
+</div>
+
+<style>
+/* ================================================================
+   Vehicle Module Styles - Neon Design DNA
+   ================================================================ */
+
+.vehicle-container {
+    position: fixed;
+    bottom: 20px;
+    right: 250px;
+    width: 280px;
+    height: auto;
+    background: linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(17, 17, 17, 0.98));
+    border: 2px solid var(--neon-cyan, #00ffff);
+    border-radius: 15px;
+    font-family: 'Orbitron', monospace;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    z-index: 850;
+}
+
+.vehicle-container.hidden {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+    pointer-events: none;
+}
+
+.vehicle-container.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+}
+
+/* Vehicle Header */
+.vehicle-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.1), transparent);
+}
+
+.vehicle-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.vehicle-title i {
+    color: var(--neon-cyan, #00ffff);
+    font-size: 14px;
+}
+
+.vehicle-status {
+    display: flex;
+    gap: 6px;
+}
+
+.status-indicator {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.status-indicator.active {
+    background: rgba(0, 255, 255, 0.2);
+    border-color: var(--neon-cyan, #00ffff);
+    color: var(--neon-cyan, #00ffff);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+}
+
+.status-indicator.warning {
+    background: rgba(255, 165, 0, 0.2);
+    border-color: #ffa500;
+    color: #ffa500;
+    animation: warning-pulse 1s ease-in-out infinite;
+}
+
+/* Speedometer Section */
+.speedometer-section {
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+}
+
+.speedometer {
+    position: relative;
+    width: 140px;
+    height: 140px;
+}
+
+.speed-arc {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(
+        from -135deg,
+        rgba(255, 255, 255, 0.1) 0deg,
+        rgba(0, 255, 255, 0.3) 270deg,
+        rgba(255, 255, 255, 0.1) 270deg
+    );
+    border: 2px solid rgba(0, 255, 255, 0.4);
+}
+
+.arc-bg {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.05), transparent);
+}
+
+.speed-needle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 3px;
+    height: 50px;
+    background: linear-gradient(to top, var(--neon-cyan, #00ffff), white);
+    border-radius: 2px;
+    transform-origin: bottom center;
+    transform: translate(-50%, -100%) rotate(-135deg);
+    transition: transform 0.3s ease;
+    box-shadow: 0 0 10px var(--neon-cyan, #00ffff);
+    z-index: 5;
+}
+
+.speed-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 10;
+}
+
+.speed-value {
+    font-size: 32px;
+    font-weight: 900;
+    color: white;
+    text-shadow: 0 0 15px white;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.speed-unit {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--neon-cyan, #00ffff);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.speed-unit:hover {
+    color: white;
+    text-shadow: 0 0 8px white;
+}
+
+.max-speed {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 4px;
+}
+
+.rpm-gauge {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.rpm-needle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1px;
+    height: 10px;
+    background: var(--neon-cyan, #00ffff);
+    transform-origin: bottom center;
+    transform: translate(-50%, -100%) rotate(-90deg);
+    transition: transform 0.2s ease;
+}
+
+/* Gauges Section */
+.gauges-section {
+    padding: 0 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gauge {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    transition: all 0.3s ease;
+}
+
+.gauge:hover {
+    border-color: var(--neon-cyan, #00ffff);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.gauge-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.gauge-header i {
+    font-size: 10px;
+    color: var(--neon-cyan, #00ffff);
+}
+
+.gauge-header span {
+    font-size: 9px;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gauge-bar {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.gauge-bar.horizontal {
+    height: 4px;
+}
+
+.gauge-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-cyan, #00ffff), white);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.fuel-gauge .gauge-fill {
+    background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+}
+
+.engine-gauge .gauge-fill {
+    background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+}
+
+.nitro-gauge .gauge-fill {
+    background: linear-gradient(90deg, var(--neon-cyan, #00ffff), #ff0080);
+}
+
+.gauge-value {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--neon-cyan, #00ffff);
+    text-align: right;
+    text-shadow: 0 0 4px var(--neon-cyan, #00ffff);
+}
+
+/* Vehicle Info */
+.vehicle-info {
+    display: flex;
+    padding: 8px 16px;
+    gap: 12px;
+    border-top: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.info-item {
+    flex: 1;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.info-label {
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.info-value {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--neon-cyan, #00ffff);
+    text-shadow: 0 0 8px var(--neon-cyan, #00ffff);
+}
+
+.gear-display {
+    font-size: 18px;
+    color: white;
+    text-shadow: 0 0 10px white;
+}
+
+/* Animation Effects */
+.speed-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 160px;
+    height: 160px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.1), transparent);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.speedometer-section:hover .speed-glow {
+    opacity: 1;
+}
+
+.scan-line {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan, #00ffff), transparent);
+    animation: scan-line 4s linear infinite;
+}
+
+/* Vehicle Animations */
+.vehicle-container.vehicle-enter {
+    animation: vehicle-enter 0.5s ease;
+}
+
+.vehicle-container.vehicle-exit {
+    animation: vehicle-exit 0.3s ease;
+}
+
+.speedometer.speed-change {
+    animation: speed-pulse 0.2s ease;
+}
+
+.gear-display.gear-change {
+    animation: gear-change 0.3s ease;
+}
+
+.gauge.fuel-warning {
+    animation: fuel-warning 2s ease-in-out;
+}
+
+.gauge.engine-warning {
+    animation: engine-warning 1.5s ease-in-out;
+}
+
+/* Keyframes */
+@keyframes vehicle-enter {
+    0% { 
+        opacity: 0; 
+        transform: scale(0.8) translateY(30px); 
+    }
+    100% { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+}
+
+@keyframes vehicle-exit {
+    0% { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+    100% { 
+        opacity: 0; 
+        transform: scale(0.9) translateY(15px); 
+    }
+}
+
+@keyframes speed-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes gear-change {
+    0%, 100% { 
+        transform: scale(1);
+        color: var(--neon-cyan, #00ffff);
+    }
+    50% { 
+        transform: scale(1.3);
+        color: white;
+        text-shadow: 0 0 15px white;
+    }
+}
+
+@keyframes warning-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@keyframes fuel-warning {
+    0%, 100% { 
+        border-color: rgba(0, 255, 255, 0.3);
+        box-shadow: none;
+    }
+    50% { 
+        border-color: #ff4444;
+        box-shadow: 0 0 15px rgba(255, 68, 68, 0.5);
+    }
+}
+
+@keyframes engine-warning {
+    0%, 100% { 
+        border-color: rgba(0, 255, 255, 0.3);
+        box-shadow: none;
+    }
+    50% { 
+        border-color: #ffa500;
+        box-shadow: 0 0 15px rgba(255, 165, 0, 0.5);
+    }
+}
+
+@keyframes scan-line {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Fuel Icon Classes */
+.fuel-critical { color: #ff4444 !important; }
+.fuel-low { color: #ffa500 !important; }
+.fuel-medium { color: #ffaa00 !important; }
+.fuel-high { color: #44ff44 !important; }
+
+/* Engine Icon Classes */
+.engine-critical { color: #ff4444 !important; }
+.engine-damaged { color: #ffa500 !important; }
+.engine-worn { color: #ffaa00 !important; }
+.engine-good { color: #44ff44 !important; }
+
+/* Theme Variants */
+.theme-synthwave .vehicle-container {
+    border-color: #ff0080;
+    box-shadow: 0 0 20px rgba(255, 0, 128, 0.3);
+}
+
+.theme-synthwave .speed-arc {
+    border-color: #ff0080;
+}
+
+.theme-synthwave .speed-needle {
+    background: linear-gradient(to top, #ff0080, white);
+    box-shadow: 0 0 10px #ff0080;
+}
+
+.theme-matrix .vehicle-container {
+    border-color: #00ff00;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.theme-matrix .speed-arc {
+    border-color: #00ff00;
+}
+
+.theme-matrix .speed-needle {
+    background: linear-gradient(to top, #00ff00, white);
+    box-shadow: 0 0 10px #00ff00;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .vehicle-container {
+        width: 240px;
+        right: 200px;
+        bottom: 15px;
+    }
+    
+    .speedometer {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .speed-value {
+        font-size: 28px;
+    }
+    
+    .speed-needle {
+        height: 45px;
+    }
+    
+    .gauge {
+        padding: 6px 8px;
+    }
+    
+    .info-value {
+        font-size: 12px;
+    }
+    
+    .gear-display {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .vehicle-container {
+        width: 200px;
+        right: 10px;
+    }
+    
+    .speedometer {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .speed-value {
+        font-size: 24px;
+    }
+    
+    .speed-needle {
+        height: 35px;
+    }
+    
+    .vehicle-status {
+        gap: 4px;
+    }
+    
+    .status-indicator {
+        width: 20px;
+        height: 20px;
+        font-size: 8px;
+    }
+    
+    .gauge-header span {
+        font-size: 8px;
+    }
+    
+    .gauge-bar {
+        height: 4px;
+    }
+}
+</style>

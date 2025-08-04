@@ -1,0 +1,600 @@
+<!-- ================================================================
+     QBCore HUD - Map & Compass Module Template
+     Version: 3.0.0
+     Description: Minimap controls, compass display, and map interaction
+     ================================================================ -->
+
+<div class="map-container module neon-glow theme-cyberpunk shape-square" id="map-container">
+    <!-- Map Header -->
+    <div class="map-header">
+        <div class="map-title">
+            <i class="fas fa-map" id="map-icon"></i>
+            <span>NAVIGATION</span>
+        </div>
+        <div class="map-controls" id="map-controls">
+            <button class="control-btn" id="shape-toggle" title="Toggle Map Shape">
+                <i class="fas fa-circle"></i>
+            </button>
+            <button class="control-btn" id="zoom-in" title="Zoom In">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button class="control-btn" id="zoom-out" title="Zoom Out">
+                <i class="fas fa-minus"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Main Compass -->
+    <div class="compass-main" id="compass">
+        <!-- Compass Rose -->
+        <div class="compass-rose" id="compass-rose">
+            <!-- Direction markers will be dynamically added -->
+        </div>
+        
+        <!-- Compass Needle -->
+        <div class="compass-needle" id="compass-needle">
+            <div class="needle-point"></div>
+            <div class="needle-center"></div>
+        </div>
+        
+        <!-- Compass Text -->
+        <div class="compass-text" id="compass-text">0°</div>
+    </div>
+    
+    <!-- Direction Indicators -->
+    <div class="direction-indicators">
+        <div class="direction-indicator north" id="direction-n">
+            <i class="fas fa-arrow-up"></i>
+            <span>N</span>
+        </div>
+        <div class="direction-indicator east" id="direction-e">
+            <i class="fas fa-arrow-right"></i>
+            <span>E</span>
+        </div>
+        <div class="direction-indicator south" id="direction-s">
+            <i class="fas fa-arrow-down"></i>
+            <span>S</span>
+        </div>
+        <div class="direction-indicator west" id="direction-w">
+            <i class="fas fa-arrow-left"></i>
+            <span>W</span>
+        </div>
+    </div>
+    
+    <!-- Map Info -->
+    <div class="map-info" id="map-info">
+        <div class="info-item">
+            <div class="info-label">COORDS</div>
+            <div class="info-value" id="map-coordinates">0, 0</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">ZOOM</div>
+            <div class="info-value" id="zoom-level">100%</div>
+        </div>
+    </div>
+    
+    <!-- Animation Effects -->
+    <div class="radar-sweep"></div>
+    <div class="scan-grid"></div>
+</div>
+
+<style>
+/* ================================================================
+   Map Module Styles - Neon Design DNA
+   ================================================================ */
+
+.map-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(17, 17, 17, 0.98));
+    border: 2px solid var(--neon-cyan, #00ffff);
+    font-family: 'Orbitron', monospace;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    z-index: 900;
+}
+
+.map-container.hidden {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+}
+
+.map-container.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Shape Variants */
+.map-container.shape-square {
+    border-radius: 15px;
+}
+
+.map-container.shape-circle {
+    border-radius: 50%;
+}
+
+/* Map Header */
+.map-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 35px;
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.1), transparent);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+    z-index: 10;
+}
+
+.map-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.map-title i {
+    color: var(--neon-cyan, #00ffff);
+    font-size: 12px;
+}
+
+.map-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.control-btn {
+    width: 20px;
+    height: 20px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 4px;
+    color: var(--neon-cyan, #00ffff);
+    font-size: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.control-btn:hover {
+    background: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+/* Main Compass */
+.compass-main {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+    border: 2px solid rgba(0, 255, 255, 0.4);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.05), transparent);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.compass-main:hover {
+    transform: translate(-50%, -50%) scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+}
+
+.compass-rose {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    transition: transform 0.3s ease;
+}
+
+.compass-marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+    transform-origin: center;
+    text-align: center;
+    width: 16px;
+    margin-left: -8px;
+    margin-top: -4px;
+}
+
+.compass-marker.major {
+    font-size: 10px;
+    color: var(--neon-cyan, #00ffff);
+    text-shadow: 0 0 6px var(--neon-cyan, #00ffff);
+}
+
+.compass-needle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 40px;
+    transform: translate(-50%, -50%);
+    transform-origin: center bottom;
+    transition: transform 0.2s ease;
+    z-index: 5;
+}
+
+.needle-point {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-bottom: 20px solid var(--neon-cyan, #00ffff);
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 0 6px var(--neon-cyan, #00ffff));
+}
+
+.needle-center {
+    width: 8px;
+    height: 8px;
+    background: radial-gradient(circle, white, var(--neon-cyan, #00ffff));
+    border-radius: 50%;
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 0 8px var(--neon-cyan, #00ffff);
+}
+
+.compass-text {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 0 8px white;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Direction Indicators */
+.direction-indicators {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.direction-indicator {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.5);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.direction-indicator.active {
+    color: var(--neon-cyan, #00ffff);
+    background: rgba(0, 255, 255, 0.1);
+    border-color: var(--neon-cyan, #00ffff);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.direction-indicator.north {
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.direction-indicator.east {
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.direction-indicator.south {
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.direction-indicator.west {
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.direction-indicator i {
+    font-size: 10px;
+    margin-bottom: 1px;
+}
+
+.direction-indicator span {
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* Map Info */
+.map-info {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.info-item {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 4px;
+    padding: 3px 6px;
+    flex: 1;
+    text-align: center;
+}
+
+.info-label {
+    font-size: 6px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
+}
+
+.info-value {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--neon-cyan, #00ffff);
+    text-shadow: 0 0 4px var(--neon-cyan, #00ffff);
+}
+
+/* Animation Effects */
+.radar-sweep {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 120px;
+    height: 120px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        rgba(0, 255, 255, 0.2) 30deg,
+        transparent 60deg
+    );
+    animation: radar-sweep 3s linear infinite;
+    opacity: 0.6;
+}
+
+.scan-grid {
+    position: absolute;
+    top: 35px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 0.3;
+}
+
+/* Animations */
+@keyframes radar-sweep {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Shape Transition */
+.map-container.shape-transition {
+    animation: shape-morph 0.3s ease;
+}
+
+@keyframes shape-morph {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Compass Center Animation */
+.compass-main.compass-center {
+    animation: compass-center 0.5s ease;
+}
+
+@keyframes compass-center {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.2); }
+}
+
+/* Direction Change Animation */
+.compass-text.direction-change {
+    animation: direction-flash 0.3s ease;
+}
+
+@keyframes direction-flash {
+    0%, 100% { 
+        background: rgba(0, 0, 0, 0.5);
+        box-shadow: none;
+    }
+    50% { 
+        background: rgba(0, 255, 255, 0.2);
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+}
+
+/* Zoom Animations */
+.map-container.zoom-in {
+    animation: zoom-pulse-in 0.2s ease;
+}
+
+.map-container.zoom-out {
+    animation: zoom-pulse-out 0.2s ease;
+}
+
+@keyframes zoom-pulse-in {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes zoom-pulse-out {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+}
+
+/* Theme Variants */
+.theme-synthwave .map-container {
+    border-color: #ff0080;
+    box-shadow: 0 0 20px rgba(255, 0, 128, 0.3);
+}
+
+.theme-synthwave .compass-main {
+    border-color: #ff0080;
+}
+
+.theme-synthwave .needle-point {
+    border-bottom-color: #ff0080;
+    filter: drop-shadow(0 0 6px #ff0080);
+}
+
+.theme-synthwave .info-value {
+    color: #ff0080;
+    text-shadow: 0 0 4px #ff0080;
+}
+
+.theme-matrix .map-container {
+    border-color: #00ff00;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.theme-matrix .compass-main {
+    border-color: #00ff00;
+}
+
+.theme-matrix .needle-point {
+    border-bottom-color: #00ff00;
+    filter: drop-shadow(0 0 6px #00ff00);
+}
+
+.theme-matrix .info-value {
+    color: #00ff00;
+    text-shadow: 0 0 4px #00ff00;
+}
+
+/* Hidden State */
+.map-container.map-hidden {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* Performance Mode */
+.performance-mode .radar-sweep {
+    animation: none;
+}
+
+.performance-mode .scan-grid {
+    display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .map-container {
+        width: 160px;
+        height: 160px;
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .compass-main {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .needle-point {
+        border-left-width: 2px;
+        border-right-width: 2px;
+        border-bottom-width: 16px;
+    }
+    
+    .direction-indicator {
+        width: 20px;
+        height: 20px;
+        font-size: 7px;
+    }
+    
+    .info-item {
+        padding: 2px 4px;
+    }
+    
+    .info-label {
+        font-size: 5px;
+    }
+    
+    .info-value {
+        font-size: 7px;
+    }
+}
+
+@media (max-width: 480px) {
+    .map-container {
+        width: 140px;
+        height: 140px;
+    }
+    
+    .compass-main {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .map-header {
+        height: 30px;
+        padding: 0 8px;
+    }
+    
+    .map-title {
+        font-size: 8px;
+    }
+    
+    .control-btn {
+        width: 16px;
+        height: 16px;
+        font-size: 6px;
+    }
+}
+</style>
